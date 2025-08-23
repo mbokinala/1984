@@ -1,9 +1,3 @@
-import { app, ipcMain, shell, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
-import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { writeFile, readFile, mkdir } from "node:fs/promises";
-import path$1 from "node:path";
-import { fileURLToPath } from "node:url";
 import require$$1 from "util";
 import stream, { Readable } from "stream";
 import require$$1$1 from "path";
@@ -17,6 +11,12 @@ import require$$1$2 from "tty";
 import require$$0$2 from "os";
 import zlib from "zlib";
 import { EventEmitter } from "events";
+import { app, ipcMain, shell, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { writeFile, readFile, mkdir } from "node:fs/promises";
+import path$1 from "node:path";
+import { fileURLToPath } from "node:url";
 function bind$2(fn, thisArg) {
   return function wrap2() {
     return fn.apply(thisArg, arguments);
@@ -16804,6 +16804,19 @@ app.whenReady().then(async () => {
     execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
       cwd
     });
+    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording`;
+    const outputPath = path$1.join(cwd, outputFilename);
+    const fileBuffer = readFileSync(outputPath);
+    fetch(uploadEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Disposition": `attachment; filename="${outputFilename}"`
+      },
+      body: fileBuffer
+    }).then(() => {
+      console.log("Uploaded recording");
+    });
   }, 5);
 });
 function setupAuthHandlers() {
@@ -16816,11 +16829,17 @@ function setupAuthHandlers() {
       return { success: true, electronAppId };
     } catch (error) {
       console.error("Auth request error:", error);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
   });
   ipcMain.handle("check-auth-status", async () => {
-    console.log("Check auth status called, returning:", { isAuthenticated, user: authUser });
+    console.log("Check auth status called, returning:", {
+      isAuthenticated,
+      user: authUser
+    });
     return { isAuthenticated, user: authUser };
   });
   ipcMain.handle("logout", async () => {
@@ -16897,9 +16916,12 @@ function startAuthCheck(electronAppId) {
       return;
     }
     try {
-      const response = await axios.post(`${WEB_APP_URL}/api/electron-auth-check`, {
-        electronAppId
-      });
+      const response = await axios.post(
+        `${WEB_APP_URL}/api/electron-auth-check`,
+        {
+          electronAppId
+        }
+      );
       if (response.status === 200) {
         const data = response.data;
         if (data.authenticated && data.user) {
@@ -16920,11 +16942,17 @@ function startAuthCheck(electronAppId) {
           } catch (error) {
             console.error("Error fetching complete user data:", error);
           }
-          const sessionPath = path$1.join(app.getPath("userData"), "session.json");
-          await writeFile(sessionPath, JSON.stringify({
-            electronAppId,
-            timestamp: Date.now()
-          }));
+          const sessionPath = path$1.join(
+            app.getPath("userData"),
+            "session.json"
+          );
+          await writeFile(
+            sessionPath,
+            JSON.stringify({
+              electronAppId,
+              timestamp: Date.now()
+            })
+          );
           if (win) {
             win.webContents.send("auth-status-changed", {
               isAuthenticated: true,

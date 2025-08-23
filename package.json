@@ -5,6 +5,10 @@
     "tailwindcss": "^4.1.12"
   },
   "dependencies": {
-    "convex": "^1.26.1"
+    "@convex-dev/auth": "^0.0.88",
+    "@oslojs/crypto": "^1.0.1",
+    "@react-email/render": "^1.2.1",
+    "convex": "^1.26.1",
+    "resend": "^6.0.1"
   }
 }

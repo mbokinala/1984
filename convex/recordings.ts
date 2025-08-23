@@ -36,7 +36,6 @@ export const createRecording = mutation({
     const userId = matchingUser._id;
 
     return await ctx.db.insert("recordings", {
-      ownerId: userId,
       video: args.storageId,
       startTime: args.startTime,
       realWorldTime: args.realWorldTime,

@@ -8,7 +8,7 @@ export default defineSchema({
     tokenIdentifier: v.optional(v.string()),
     email: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    
+
     // Legacy fields - keep for backward compatibility
     clerkId: v.optional(v.string()),
     isAuthenticated: v.optional(v.boolean()),
@@ -17,7 +17,7 @@ export default defineSchema({
   })
     .index("by_token", ["tokenIdentifier"])
     .index("by_clerk_id", ["clerkId"]), // Keep old index for migration
-  
+
   electronSessions: defineTable({
     electronAppId: v.string(),
     userId: v.optional(v.id("users")),
@@ -41,7 +41,6 @@ export default defineSchema({
     .index("by_electron_app", ["electronAppId"]),
 
   recordings: defineTable({
-    ownerId: v.id("users"),
     video: v.id("_storage"),
     startTime: v.number(), // unix ms timestamp of beginning of video
     realWorldTime: v.number(), // number of milliseconds represented by the video
