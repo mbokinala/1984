@@ -12,6 +12,7 @@ import {
   Send,
   Settings2,
   SquareTerminal,
+  Video,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -37,21 +38,32 @@ const data = {
   },
   navMain: [
     {
-      title: "Playground",
-      url: "#",
+      title: "Dashboard",
+      url: "/dashboard",
       icon: SquareTerminal,
       isActive: true,
       items: [
         {
-          title: "History",
+          title: "Overview",
+          url: "/dashboard",
+        },
+      ],
+    },
+    {
+      title: "Recordings",
+      url: "/recordings",
+      icon: Video,
+      items: [
+        {
+          title: "All Recordings",
+          url: "/recordings",
+        },
+        {
+          title: "Recent",
           url: "#",
         },
         {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
+          title: "Analyzed",
           url: "#",
         },
       ],

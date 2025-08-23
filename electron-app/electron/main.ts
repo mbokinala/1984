@@ -123,7 +123,9 @@ app.whenReady().then(async () => {
       cwd,
     });
 
-    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording`;
+    const startTimeMs = Date.parse(frame.timestamp);
+
+    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording?startTime=${startTimeMs}`;
 
     // Read the output mp4 file and send it in the body
     const outputPath = path.join(cwd, outputFilename);
@@ -156,13 +158,13 @@ function setupAuthHandlers() {
   ipcMain.handle("request-auth", async () => {
     try {
       const sessionPath = path.join(app.getPath("userData"), "session.json");
-      
+
       // Always generate a new ID for new auth attempts
       // This allows signing in with different accounts
       const electronAppId = `electron_${Date.now()}_${Math.random()
         .toString(36)
         .substring(7)}`;
-      
+
       console.log("Generated new electron app ID for auth:", electronAppId);
 
       // Save the electron app ID

@@ -16804,7 +16804,8 @@ app.whenReady().then(async () => {
     execSync(`./make_movie.sh 1 ${outputFilename}`, {
       cwd
     });
-    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording`;
+    const startTimeMs = Date.parse(frame.timestamp);
+    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording?startTime=${startTimeMs}`;
     const outputPath = path$1.join(cwd, outputFilename);
     const fileBuffer = readFileSync(outputPath);
     fetch(uploadEndpoint, {
