@@ -1,4 +1,3 @@
-import axios from "axios";
 import {
   app,
   BrowserWindow,
@@ -9,10 +8,11 @@ import {
   shell,
 } from "electron";
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import axios from "axios";
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -46,10 +46,7 @@ let isRecording = false;
 let isAuthenticated = false;
 let authUser: any = null;
 let authCheckInterval: NodeJS.Timeout | null = null;
-const WEB_APP_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "https://your-web-app.com";
+const WEB_APP_URL = process.env.NODE_ENV === 'development' ? "http://localhost:3000" : "https://your-web-app.com";
 
 function createWindow() {
   win = new BrowserWindow({
@@ -122,22 +119,6 @@ app.whenReady().then(async () => {
     execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
       cwd,
     });
-
-    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording`;
-
-    // Read the output mp4 file and send it in the body
-    const outputPath = path.join(cwd, outputFilename);
-    const fileBuffer = readFileSync(outputPath);
-    fetch(uploadEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "video/mp4",
-        "Content-Disposition": `attachment; filename="${outputFilename}"`,
-      },
-      body: fileBuffer,
-    }).then(() => {
-      console.log("Uploaded recording");
-    });
   }, 5);
 });
 
@@ -147,42 +128,34 @@ function setupAuthHandlers() {
   ipcMain.handle("request-auth", async () => {
     try {
       // Generate a unique session ID for this electron app instance
-      const electronAppId = `electron_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(7)}`;
-
+      const electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      
       // Open browser with authentication URL including the electron app ID
       const authUrl = `${WEB_APP_URL}/sign-in?electronApp=true&appId=${electronAppId}`;
       await shell.openExternal(authUrl);
-
+      
       // Start checking for authentication
       startAuthCheck(electronAppId);
-
+      
       return { success: true, electronAppId };
     } catch (error) {
       console.error("Auth request error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
-
+  
   // Handle auth status check
   ipcMain.handle("check-auth-status", async () => {
-    console.log("Check auth status called, returning:", {
-      isAuthenticated,
-      user: authUser,
-    });
+    console.log("Check auth status called, returning:", { isAuthenticated, user: authUser });
     return { isAuthenticated, user: authUser };
   });
-
+  
   // Handle logout
   ipcMain.handle("logout", async () => {
     // Clear authentication state
     isAuthenticated = false;
     authUser = null;
-
+    
     // Clear stored session
     const sessionPath = path.join(app.getPath("userData"), "session.json");
     try {
@@ -190,12 +163,12 @@ function setupAuthHandlers() {
     } catch (error) {
       console.error("Error clearing session:", error);
     }
-
+    
     // Notify renderer
     if (win) {
       win.webContents.send("auth-status-changed", { isAuthenticated: false });
     }
-
+    
     return { success: true };
   });
 }
@@ -205,23 +178,23 @@ async function checkAuthStatus() {
   try {
     // Check for stored session
     const sessionPath = path.join(app.getPath("userData"), "session.json");
-
+    
     if (existsSync(sessionPath)) {
       const sessionData = await readFile(sessionPath, "utf-8");
       const session = JSON.parse(sessionData);
-
+      
       if (session.electronAppId) {
         // Check if session is still valid by checking with the server
         const response = await axios.post(
           "http://localhost:3000/api/electron-auth-check",
           { electronAppId: session.electronAppId }
         );
-
+        
         if (response.data.authenticated) {
           isAuthenticated = true;
           authUser = response.data.user;
           console.log("Session restored, user data:", authUser);
-
+          
           // Fetch fresh user data from Convex
           try {
             const userResponse = await axios.post(
@@ -235,12 +208,12 @@ async function checkAuthStatus() {
           } catch (error) {
             console.error("Error fetching fresh user data:", error);
           }
-
+          
           // Notify renderer with fresh user data
           if (win) {
-            win.webContents.send("auth-status-changed", {
+            win.webContents.send("auth-status-changed", { 
               isAuthenticated: true,
-              user: authUser,
+              user: authUser 
             });
           }
         } else {
@@ -259,44 +232,41 @@ function startAuthCheck(electronAppId: string) {
   if (authCheckInterval) {
     clearInterval(authCheckInterval);
   }
-
+  
   let checkCount = 0;
   const maxChecks = 120; // Check for 10 minutes max (120 * 5 seconds)
-
+  
   authCheckInterval = setInterval(async () => {
     checkCount++;
-
+    
     if (checkCount > maxChecks) {
       clearInterval(authCheckInterval!);
       authCheckInterval = null;
-
+      
       if (win) {
         win.webContents.send("auth-timeout");
       }
       return;
     }
-
+    
     try {
       // Check with web app for authentication status
-      const response = await axios.post(
-        `${WEB_APP_URL}/api/electron-auth-check`,
-        {
-          electronAppId,
-        }
-      );
-
+      const response = await axios.post(`${WEB_APP_URL}/api/electron-auth-check`, {
+        electronAppId,
+      });
+      
       if (response.status === 200) {
         const data = response.data;
-
+        
         if (data.authenticated && data.user) {
           // Authentication successful
           clearInterval(authCheckInterval!);
           authCheckInterval = null;
-
+          
           isAuthenticated = true;
           authUser = data.user;
           console.log("Authentication successful, user data:", authUser);
-
+          
           // Fetch complete user data from Convex
           try {
             const userResponse = await axios.post(
@@ -310,25 +280,19 @@ function startAuthCheck(electronAppId: string) {
           } catch (error) {
             console.error("Error fetching complete user data:", error);
           }
-
+          
           // Store session info
-          const sessionPath = path.join(
-            app.getPath("userData"),
-            "session.json"
-          );
-          await writeFile(
-            sessionPath,
-            JSON.stringify({
-              electronAppId: electronAppId,
-              timestamp: Date.now(),
-            })
-          );
-
+          const sessionPath = path.join(app.getPath("userData"), "session.json");
+          await writeFile(sessionPath, JSON.stringify({ 
+            electronAppId: electronAppId,
+            timestamp: Date.now() 
+          }));
+          
           // Notify renderer with complete user data
           if (win) {
-            win.webContents.send("auth-status-changed", {
+            win.webContents.send("auth-status-changed", { 
               isAuthenticated: true,
-              user: authUser,
+              user: authUser 
             });
           }
         }

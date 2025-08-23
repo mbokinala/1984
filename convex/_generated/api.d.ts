@@ -13,10 +13,8 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as ResendOTP from "../ResendOTP.js";
 import type * as debug from "../debug.js";
 import type * as electronAuth from "../electronAuth.js";
-import type * as http from "../http.js";
 import type * as recordings from "../recordings.js";
 import type * as users from "../users.js";
 
@@ -29,10 +27,8 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  ResendOTP: typeof ResendOTP;
   debug: typeof debug;
   electronAuth: typeof electronAuth;
-  http: typeof http;
   recordings: typeof recordings;
   users: typeof users;
 }>;
