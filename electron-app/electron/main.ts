@@ -127,8 +127,41 @@ function setupAuthHandlers() {
   // Handle authentication request
   ipcMain.handle("request-auth", async () => {
     try {
-      // Generate a unique session ID for this electron app instance
-      const electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // Try to reuse existing electron app ID if available
+      const sessionPath = path.join(app.getPath("userData"), "session.json");
+      let electronAppId: string;
+      
+      try {
+        if (existsSync(sessionPath)) {
+          const sessionData = await readFile(sessionPath, "utf-8");
+          const session = JSON.parse(sessionData);
+          if (session.electronAppId) {
+            electronAppId = session.electronAppId;
+            console.log("Reusing existing electron app ID:", electronAppId);
+          } else {
+            // Generate new ID if none exists
+            electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+            console.log("Generated new electron app ID:", electronAppId);
+          }
+        } else {
+          // Generate new ID if no session file
+          electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          console.log("Generated new electron app ID:", electronAppId);
+        }
+      } catch {
+        // Generate new ID on any error
+        electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        console.log("Generated new electron app ID after error:", electronAppId);
+      }
+      
+      // Save the electron app ID for future use
+      try {
+        await writeFile(sessionPath, JSON.stringify({ electronAppId }));
+      } catch (error) {
+        console.error("Error saving electron app ID:", error);
+      }
+      
+      console.log("Using electron app ID for auth:", electronAppId);
       
       // Open browser with authentication URL including the electron app ID
       const authUrl = `${WEB_APP_URL}/sign-in?electronApp=true&appId=${electronAppId}`;
@@ -152,16 +185,46 @@ function setupAuthHandlers() {
   
   // Handle logout
   ipcMain.handle("logout", async () => {
+    console.log("Logout requested");
+    
+    // Get the electron app ID to clear the session in Convex
+    const sessionPath = path.join(app.getPath("userData"), "session.json");
+    let electronAppId: string | null = null;
+    
+    try {
+      if (existsSync(sessionPath)) {
+        const sessionData = await readFile(sessionPath, "utf-8");
+        const session = JSON.parse(sessionData);
+        electronAppId = session.electronAppId;
+      }
+    } catch (error) {
+      console.error("Error reading session for logout:", error);
+    }
+    
+    // Clear session in Convex if we have an app ID
+    if (electronAppId) {
+      try {
+        await axios.post(`${WEB_APP_URL}/api/electron-clear-session`, {
+          electronAppId,
+        });
+        console.log("Cleared session in Convex for:", electronAppId);
+      } catch (error) {
+        console.error("Error clearing Convex session:", error);
+      }
+    }
+    
     // Clear authentication state
     isAuthenticated = false;
     authUser = null;
     
-    // Clear stored session
-    const sessionPath = path.join(app.getPath("userData"), "session.json");
+    // Keep the electronAppId but clear auth data
     try {
-      await writeFile(sessionPath, JSON.stringify({}));
+      await writeFile(sessionPath, JSON.stringify({ 
+        electronAppId: electronAppId || "" // Keep the app ID for re-authentication
+      }));
+      console.log("Cleared auth data but kept electron app ID");
     } catch (error) {
-      console.error("Error clearing session:", error);
+      console.error("Error updating session file:", error);
     }
     
     // Notify renderer
@@ -217,8 +280,11 @@ async function checkAuthStatus() {
             });
           }
         } else {
-          // Clear invalid session
-          await writeFile(sessionPath, JSON.stringify({}));
+          // Session not authenticated, but keep the electronAppId
+          console.log("Session not authenticated, keeping electronAppId:", session.electronAppId);
+          await writeFile(sessionPath, JSON.stringify({ 
+            electronAppId: session.electronAppId 
+          }));
         }
       }
     }

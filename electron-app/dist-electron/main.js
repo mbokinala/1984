@@ -1,7 +1,7 @@
 import { app, ipcMain, shell, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { writeFile, readFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path$1 from "node:path";
 import { fileURLToPath } from "node:url";
 import require$$1 from "util";
@@ -16802,7 +16802,33 @@ app.whenReady().then(async () => {
 function setupAuthHandlers() {
   ipcMain.handle("request-auth", async () => {
     try {
-      const electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const sessionPath = path$1.join(app.getPath("userData"), "session.json");
+      let electronAppId;
+      try {
+        if (existsSync(sessionPath)) {
+          const sessionData = await readFile(sessionPath, "utf-8");
+          const session = JSON.parse(sessionData);
+          if (session.electronAppId) {
+            electronAppId = session.electronAppId;
+            console.log("Reusing existing electron app ID:", electronAppId);
+          } else {
+            electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+            console.log("Generated new electron app ID:", electronAppId);
+          }
+        } else {
+          electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          console.log("Generated new electron app ID:", electronAppId);
+        }
+      } catch {
+        electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        console.log("Generated new electron app ID after error:", electronAppId);
+      }
+      try {
+        await writeFile(sessionPath, JSON.stringify({ electronAppId }));
+      } catch (error) {
+        console.error("Error saving electron app ID:", error);
+      }
+      console.log("Using electron app ID for auth:", electronAppId);
       const authUrl = `${WEB_APP_URL}/sign-in?electronApp=true&appId=${electronAppId}`;
       await shell.openExternal(authUrl);
       startAuthCheck(electronAppId);
@@ -16817,13 +16843,38 @@ function setupAuthHandlers() {
     return { isAuthenticated, user: authUser };
   });
   ipcMain.handle("logout", async () => {
+    console.log("Logout requested");
+    const sessionPath = path$1.join(app.getPath("userData"), "session.json");
+    let electronAppId = null;
+    try {
+      if (existsSync(sessionPath)) {
+        const sessionData = await readFile(sessionPath, "utf-8");
+        const session = JSON.parse(sessionData);
+        electronAppId = session.electronAppId;
+      }
+    } catch (error) {
+      console.error("Error reading session for logout:", error);
+    }
+    if (electronAppId) {
+      try {
+        await axios.post(`${WEB_APP_URL}/api/electron-clear-session`, {
+          electronAppId
+        });
+        console.log("Cleared session in Convex for:", electronAppId);
+      } catch (error) {
+        console.error("Error clearing Convex session:", error);
+      }
+    }
     isAuthenticated = false;
     authUser = null;
-    const sessionPath = path$1.join(app.getPath("userData"), "session.json");
     try {
-      await writeFile(sessionPath, JSON.stringify({}));
+      await writeFile(sessionPath, JSON.stringify({
+        electronAppId: electronAppId || ""
+        // Keep the app ID for re-authentication
+      }));
+      console.log("Cleared auth data but kept electron app ID");
     } catch (error) {
-      console.error("Error clearing session:", error);
+      console.error("Error updating session file:", error);
     }
     if (win) {
       win.webContents.send("auth-status-changed", { isAuthenticated: false });
@@ -16865,7 +16916,10 @@ async function checkAuthStatus() {
             });
           }
         } else {
-          await writeFile(sessionPath, JSON.stringify({}));
+          console.log("Session not authenticated, keeping electronAppId:", session.electronAppId);
+          await writeFile(sessionPath, JSON.stringify({
+            electronAppId: session.electronAppId
+          }));
         }
       }
     }

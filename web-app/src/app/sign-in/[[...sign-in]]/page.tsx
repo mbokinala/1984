@@ -36,37 +36,43 @@ export default function SignInPage() {
 
   useEffect(() => {
     const handleAuth = async () => {
-      // Wait for both Clerk and Convex to be ready
-      if (!isLoaded || !isAuthenticated) return;
+      // Wait for Clerk to load and user to be authenticated
+      if (!isLoaded || !user) return;
       
-      if (user && isElectronAuth && electronAppId) {
+      // Wait for Convex to be authenticated
+      if (!isAuthenticated) {
+        console.log("Waiting for Convex authentication...");
+        return;
+      }
+      
+      if (isElectronAuth && electronAppId) {
         try {
           console.log("Starting electron auth flow for:", electronAppId);
-          console.log("User object from Clerk:", user);
+          console.log("User authenticated:", user.id);
           
-          // Store user in Convex (idempotent operation)
+          // Store user in Convex first
           const userId = await storeUser();
           console.log("User stored in Convex with ID:", userId);
 
-          // Link electron app to user
+          // Link electron app to user - this will create/update the session
           await linkElectronApp({ electronAppId });
-          console.log("Electron app linked to user");
+          console.log("Electron app linked successfully");
 
           setAuthComplete(true);
 
-          // Show success message and redirect
+          // Redirect after showing success
           setTimeout(() => {
             router.push("/dashboard?electronAuth=success");
           }, 1500);
         } catch (error) {
           console.error("Error handling electron auth:", error);
-          // Still redirect even if there's an error storing user
+          // Still try to redirect on error
           setTimeout(() => {
             router.push("/dashboard?electronAuth=error");
           }, 1500);
         }
-      } else if (user && !isElectronAuth) {
-        // Normal sign-in flow - store user and redirect
+      } else if (!isElectronAuth) {
+        // Normal sign-in flow
         try {
           const userId = await storeUser();
           console.log("User stored in Convex with ID:", userId);
