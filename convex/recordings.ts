@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery, mutation } from "./_generated/server";
 
 export const generateUploadUrl = mutation({
   handler: async (ctx) => {
@@ -30,5 +30,12 @@ export const getRecording = internalQuery({
   args: { recordingId: v.id("recordings") },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.recordingId);
+  },
+});
+
+export const updateRecordingAnalysis = internalMutation({
+  args: { recordingId: v.id("recordings"), analysis: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db.patch(args.recordingId, { analysis: args.analysis });
   },
 });

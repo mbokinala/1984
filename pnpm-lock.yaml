@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@ai-sdk/google':
+        specifier: ^2.0.8
+        version: 2.0.8(zod@3.25.76)
       '@convex-dev/workflow':
         specifier: ^0.2.6
-        version: 0.2.6(@convex-dev/workpool@0.2.18(convex-helpers@0.1.104(convex@1.26.1))(convex@1.26.1))(convex-helpers@0.1.104(convex@1.26.1))(convex@1.26.1)
+        version: 0.2.6(@convex-dev/workpool@0.2.18(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76))(convex@1.26.1))(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76))(convex@1.26.1)
+      ai:
+        specifier: ^5.0.22
+        version: 5.0.22(zod@3.25.76)
       convex:
         specifier: ^1.26.1
         version: 1.26.1
@@ -26,6 +32,28 @@ importers:
         version: 4.1.12
 
 packages:
+
+  '@ai-sdk/gateway@1.0.11':
+    resolution: {integrity: sha512-ErwWS3sPOuWy42eE3AVxlKkTa1XjjKBEtNCOylVKMO5KNyz5qie8QVlLYbULOG56dtxX4zTKX3rQNJudplhcmQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
+
+  '@ai-sdk/google@2.0.8':
+    resolution: {integrity: sha512-k+5SLtoV0qG4rSCxwWQ+/0qrJFXwYHQ1TcH4GyaP4X0qOuVS4NDtD8ymSu8ej0ejFluogtBfTLev7sbj2AnJzA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
+
+  '@ai-sdk/provider-utils@3.0.5':
+    resolution: {integrity: sha512-HliwB/yzufw3iwczbFVE2Fiwf1XqROB/I6ng8EKUsPM5+2wnIa8f4VbljZcDx+grhFrPV+PnRZH7zBqi8WZM7Q==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
+
+  '@ai-sdk/provider@2.0.0':
+    resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
+    engines: {node: '>=18'}
 
   '@convex-dev/workflow@0.2.6':
     resolution: {integrity: sha512-jXaRqBHiRKHCbm8kll0+PxlRtHFkmXCVVbKBhuVYLP4/O5Tlxb2teXDKx+pv3hsmcps0uySm5QKSmsp51N1hTw==}
@@ -190,6 +218,19 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@opentelemetry/api@1.9.0':
+    resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
+    engines: {node: '>=8.0.0'}
+
+  '@standard-schema/spec@1.0.0':
+    resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
+
+  ai@5.0.22:
+    resolution: {integrity: sha512-RZiYhj7Ux7hrLtXkHPcxzdiSZt4NOiC69O5AkNfMCsz3twwz/KRkl9ASptosoOsg833s5yRcTSdIu5z53Sl6Pw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
+
   async-channel@0.2.0:
     resolution: {integrity: sha512-BJyjI/sfKlyijaBt2hbOSxT28xGNtLR0QLzAKO1Hlnv5BULY7sAoYoTPW3lfr1ZIC7y+FxabxO9T8GXpyoofGg==}
 
@@ -258,8 +299,15 @@ packages:
     resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
     engines: {node: '>=6'}
 
+  eventsource-parser@3.0.5:
+    resolution: {integrity: sha512-bSRG85ZrMdmWtm7qkF9He9TNRzc/Bm99gEJMaQoHJ9E6Kv9QBbsldh2oMj7iXmYNEAVvNgvv5vPorG6W+XtBhQ==}
+    engines: {node: '>=20.0.0'}
+
   fraction.js@4.3.7:
     resolution: {integrity: sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==}
+
+  json-schema@0.4.0:
+    resolution: {integrity: sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA==}
 
   jwt-decode@4.0.0:
     resolution: {integrity: sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA==}
@@ -305,19 +353,51 @@ packages:
     peerDependencies:
       browserslist: '>= 4.21.0'
 
+  zod-to-json-schema@3.24.6:
+    resolution: {integrity: sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==}
+    peerDependencies:
+      zod: ^3.24.1
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
 snapshots:
 
-  '@convex-dev/workflow@0.2.6(@convex-dev/workpool@0.2.18(convex-helpers@0.1.104(convex@1.26.1))(convex@1.26.1))(convex-helpers@0.1.104(convex@1.26.1))(convex@1.26.1)':
+  '@ai-sdk/gateway@1.0.11(zod@3.25.76)':
     dependencies:
-      '@convex-dev/workpool': 0.2.18(convex-helpers@0.1.104(convex@1.26.1))(convex@1.26.1)
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.5(zod@3.25.76)
+      zod: 3.25.76
+
+  '@ai-sdk/google@2.0.8(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.5(zod@3.25.76)
+      zod: 3.25.76
+
+  '@ai-sdk/provider-utils@3.0.5(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@standard-schema/spec': 1.0.0
+      eventsource-parser: 3.0.5
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.6(zod@3.25.76)
+
+  '@ai-sdk/provider@2.0.0':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@convex-dev/workflow@0.2.6(@convex-dev/workpool@0.2.18(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76))(convex@1.26.1))(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76))(convex@1.26.1)':
+    dependencies:
+      '@convex-dev/workpool': 0.2.18(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76))(convex@1.26.1)
       async-channel: 0.2.0
       convex: 1.26.1
-      convex-helpers: 0.1.104(convex@1.26.1)
+      convex-helpers: 0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76)
 
-  '@convex-dev/workpool@0.2.18(convex-helpers@0.1.104(convex@1.26.1))(convex@1.26.1)':
+  '@convex-dev/workpool@0.2.18(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76))(convex@1.26.1)':
     dependencies:
       convex: 1.26.1
-      convex-helpers: 0.1.104(convex@1.26.1)
+      convex-helpers: 0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76)
 
   '@esbuild/aix-ppc64@0.25.4':
     optional: true
@@ -394,6 +474,18 @@ snapshots:
   '@esbuild/win32-x64@0.25.4':
     optional: true
 
+  '@opentelemetry/api@1.9.0': {}
+
+  '@standard-schema/spec@1.0.0': {}
+
+  ai@5.0.22(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 1.0.11(zod@3.25.76)
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.5(zod@3.25.76)
+      '@opentelemetry/api': 1.9.0
+      zod: 3.25.76
+
   async-channel@0.2.0: {}
 
   autoprefixer@10.4.21(postcss@8.5.6):
@@ -415,9 +507,12 @@ snapshots:
 
   caniuse-lite@1.0.30001737: {}
 
-  convex-helpers@0.1.104(convex@1.26.1):
+  convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.26.1)(zod@3.25.76):
     dependencies:
       convex: 1.26.1
+    optionalDependencies:
+      '@standard-schema/spec': 1.0.0
+      zod: 3.25.76
 
   convex@1.26.1:
     dependencies:
@@ -457,7 +552,11 @@ snapshots:
 
   escalade@3.2.0: {}
 
+  eventsource-parser@3.0.5: {}
+
   fraction.js@4.3.7: {}
+
+  json-schema@0.4.0: {}
 
   jwt-decode@4.0.0: {}
 
@@ -488,3 +587,9 @@ snapshots:
       browserslist: 4.25.3
       escalade: 3.2.0
       picocolors: 1.1.1
+
+  zod-to-json-schema@3.24.6(zod@3.25.76):
+    dependencies:
+      zod: 3.25.76
+
+  zod@3.25.76: {}
