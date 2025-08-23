@@ -5,11 +5,14 @@ import {
   globalShortcut,
   ipcMain,
   screen,
+  shell,
 } from "electron";
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ConvexClient } from "convex/browser";
+import axios from "axios";
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +39,14 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 let win: BrowserWindow | null;
 let screenshotInterval: NodeJS.Timeout | null = null;
 let isRecording = false;
+let isAuthenticated = false;
+let authSessionToken: string | null = null;
+let convexClient: ConvexClient | null = null;
+let authCheckInterval: NodeJS.Timeout | null = null;
+
+// Load environment variables
+const CONVEX_URL = "https://artful-duck-190.convex.cloud";
+const WEB_APP_URL = process.env.NODE_ENV === 'development' ? "http://localhost:3000" : "https://your-web-app.com";
 
 function createWindow() {
   win = new BrowserWindow({
@@ -82,12 +93,181 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
+  setupAuthHandlers();
+  await checkAuthStatus();
   setupScreenshotHandlers();
   setupWindowHandlers();
   setupGlobalShortcuts();
 });
+
+// Authentication handlers
+function setupAuthHandlers() {
+  // Handle authentication request
+  ipcMain.handle("request-auth", async () => {
+    try {
+      // Generate a unique session ID for this electron app instance
+      const electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      
+      // Open browser with authentication URL including the electron app ID
+      const authUrl = `${WEB_APP_URL}/sign-in?electronApp=true&appId=${electronAppId}`;
+      await shell.openExternal(authUrl);
+      
+      // Start checking for authentication
+      startAuthCheck(electronAppId);
+      
+      return { success: true, electronAppId };
+    } catch (error) {
+      console.error("Auth request error:", error);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+  
+  // Handle auth status check
+  ipcMain.handle("check-auth-status", async () => {
+    return { isAuthenticated, sessionToken: authSessionToken };
+  });
+  
+  // Handle logout
+  ipcMain.handle("logout", async () => {
+    if (authSessionToken && convexClient) {
+      try {
+        // Invalidate session in Convex
+        const { api } = await import("../convex/_generated/api.js");
+        await convexClient.mutation(api.auth.invalidateSession, {
+          sessionToken: authSessionToken,
+        });
+      } catch (error) {
+        console.error("Logout error:", error);
+      }
+    }
+    
+    isAuthenticated = false;
+    authSessionToken = null;
+    
+    // Clear stored session
+    const sessionPath = path.join(app.getPath("userData"), "session.json");
+    try {
+      await writeFile(sessionPath, JSON.stringify({}));
+    } catch (error) {
+      console.error("Error clearing session:", error);
+    }
+    
+    // Notify renderer
+    if (win) {
+      win.webContents.send("auth-status-changed", { isAuthenticated: false });
+    }
+    
+    return { success: true };
+  });
+}
+
+// Check authentication status on startup
+async function checkAuthStatus() {
+  try {
+    // Check for stored session
+    const sessionPath = path.join(app.getPath("userData"), "session.json");
+    
+    if (existsSync(sessionPath)) {
+      const sessionData = await readFile(sessionPath, "utf-8");
+      const session = JSON.parse(sessionData);
+      
+      if (session.token) {
+        // Initialize Convex client
+        convexClient = new ConvexClient(CONVEX_URL);
+        
+        // Verify session with Convex
+        const { api } = await import("../convex/_generated/api.js");
+        const result = await convexClient.query(api.auth.verifySession, {
+          sessionToken: session.token,
+        });
+        
+        if (result.valid) {
+          isAuthenticated = true;
+          authSessionToken = session.token;
+          
+          // Notify renderer
+          if (win) {
+            win.webContents.send("auth-status-changed", { 
+              isAuthenticated: true,
+              user: result.user 
+            });
+          }
+        } else {
+          // Clear invalid session
+          await writeFile(sessionPath, JSON.stringify({}));
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error checking auth status:", error);
+  }
+}
+
+// Start checking for authentication completion
+function startAuthCheck(electronAppId: string) {
+  if (authCheckInterval) {
+    clearInterval(authCheckInterval);
+  }
+  
+  let checkCount = 0;
+  const maxChecks = 120; // Check for 10 minutes max (120 * 5 seconds)
+  
+  authCheckInterval = setInterval(async () => {
+    checkCount++;
+    
+    if (checkCount > maxChecks) {
+      clearInterval(authCheckInterval!);
+      authCheckInterval = null;
+      
+      if (win) {
+        win.webContents.send("auth-timeout");
+      }
+      return;
+    }
+    
+    try {
+      // Check with web app for authentication status
+      const response = await axios.post(`${WEB_APP_URL}/api/electron-auth-check`, {
+        electronAppId,
+      });
+      
+      if (response.status === 200) {
+        const data = response.data;
+        
+        if (data.authenticated && data.sessionToken) {
+          // Authentication successful
+          clearInterval(authCheckInterval!);
+          authCheckInterval = null;
+          
+          isAuthenticated = true;
+          authSessionToken = data.sessionToken;
+          
+          // Initialize Convex client
+          convexClient = new ConvexClient(CONVEX_URL);
+          
+          // Store session
+          const sessionPath = path.join(app.getPath("userData"), "session.json");
+          await writeFile(sessionPath, JSON.stringify({ 
+            token: data.sessionToken,
+            timestamp: Date.now() 
+          }));
+          
+          // Notify renderer
+          if (win) {
+            win.webContents.send("auth-status-changed", { 
+              isAuthenticated: true,
+              user: data.user 
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Auth check error:", error);
+    }
+  }, 5000); // Check every 5 seconds
+}
 
 // Screenshot functionality
 function setupScreenshotHandlers() {
