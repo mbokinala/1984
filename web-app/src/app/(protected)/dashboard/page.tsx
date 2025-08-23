@@ -15,14 +15,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@clerk/nextjs"
-import { redirect } from "next/navigation"
+
 
 export default function Page() {
   const { isLoaded, isSignedIn } = useAuth()
 
-  if (!isLoaded || !isSignedIn) {
-    redirect('/sign-in')
-  }
 
   return (
     <SidebarProvider>
@@ -62,3 +59,4 @@ export default function Page() {
     </SidebarProvider>
   )
 }
+  

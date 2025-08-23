@@ -29,7 +29,7 @@ export default function SignInPage() {
                               <Button
                                 variant="outline"
                                 type="button"
-                                className="w-5/7 h-9 rounded-lg border border-gray-300 flex items-center justify-center gap-3 bg-transparent"
+                                className="w-4/7 h-8 rounded-xl border border-gray-300 flex items-center justify-center gap-3 bg-transparent"
                                 disabled={isGlobalLoading}
                               >
                                 <Clerk.Loading scope="provider:google">
