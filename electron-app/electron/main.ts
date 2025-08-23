@@ -26,6 +26,8 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+let screenshotInterval: NodeJS.Timeout | null = null
+let isRecording = false
 
 function createWindow() {
   win = new BrowserWindow({
@@ -300,6 +302,11 @@ function setupWindowHandlers() {
     // Overlay is hidden, but window stays open
   })
 
+  // Handle request for current recording state
+  ipcMain.handle('get-recording-state', () => {
+    return isRecording
+  })
+
   ipcMain.on('minimize-window', () => {
     if (win) {
       win.minimize()
@@ -339,13 +346,37 @@ function setupGlobalShortcuts() {
       win.show()
       win.focus()
       win.webContents.send('show-overlay')
+      // Send current recording state when showing
+      win.webContents.send('recording-state-changed', isRecording)
     }
   })
 
   // Toggle recording
   globalShortcut.register('CommandOrControl+Shift+R', () => {
+    if (isRecording) {
+      // Stop recording
+      isRecording = false
+      if (screenshotInterval) {
+        clearInterval(screenshotInterval)
+        screenshotInterval = null
+      }
+      console.log('Recording stopped via shortcut')
+    } else {
+      // Start recording
+      isRecording = true
+      if (screenshotInterval) {
+        clearInterval(screenshotInterval)
+      }
+      captureScreenshot()
+      screenshotInterval = setInterval(() => {
+        captureScreenshot()
+      }, 5000)
+      console.log('Recording started via shortcut')
+    }
+    
+    // Notify renderer of state change
     if (win) {
-      win.webContents.send('toggle-recording')
+      win.webContents.send('recording-state-changed', isRecording)
     }
   })
 }
@@ -355,6 +386,8 @@ app.on('activate', () => {
   if (win) {
     win.show()
     win.webContents.send('show-overlay')
+    // Send current recording state when showing via dock
+    win.webContents.send('recording-state-changed', isRecording)
   } else if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
   }
@@ -363,4 +396,110 @@ app.on('activate', () => {
 // Unregister shortcuts on quit
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  // Stop recording if active
+  if (screenshotInterval) {
+    clearInterval(screenshotInterval)
+  }
+})
+
+// Screenshot capture function
+async function captureScreenshot() {
+  try {
+    // Temporarily set window to not capture
+    if (win) {
+      win.setContentProtection(true)
+    }
+    
+    // Small delay to ensure the protection is applied
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Get the primary display
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { width, height } = primaryDisplay.workAreaSize
+
+    // Get all available sources (screens)
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width, height }
+    })
+
+    // Find the main screen source
+    const screenSource = sources.find(source => 
+      source.name === 'Entire Screen' || 
+      source.name.includes('Screen') ||
+      source.name === 'Desktop'
+    ) || sources[0]
+    
+    if (!screenSource) {
+      throw new Error('No screen source found')
+    }
+
+    // Get the thumbnail as a NativeImage
+    const screenshot = screenSource.thumbnail
+
+    // Convert to buffer
+    const buffer = screenshot.toPNG()
+    
+    // Re-enable capture after screenshot
+    if (win) {
+      win.setContentProtection(false)
+    }
+
+    // Create directory if it doesn't exist
+    const screenshotDir = path.join(app.getPath('home'), 'Library', 'Pictures', 'ScreenCap')
+    if (!existsSync(screenshotDir)) {
+      await mkdir(screenshotDir, { recursive: true })
+    }
+
+    // Save to file with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`)
+    await writeFile(screenshotPath, buffer)
+
+    console.log('Screenshot saved:', screenshotPath)
+    return { success: true, path: screenshotPath }
+  } catch (error) {
+    console.error('Screenshot error:', error)
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+// Handle recording state
+ipcMain.on('recording-started', () => {
+  console.log('Recording started')
+  isRecording = true
+  
+  // Clear any existing interval
+  if (screenshotInterval) {
+    clearInterval(screenshotInterval)
+  }
+  
+  // Take immediate screenshot
+  captureScreenshot()
+  
+  // Start taking screenshots every 5 seconds
+  screenshotInterval = setInterval(() => {
+    captureScreenshot()
+  }, 5000)
+  
+  // Notify renderer of state change
+  if (win) {
+    win.webContents.send('recording-state-changed', true)
+  }
+})
+
+ipcMain.on('recording-stopped', () => {
+  console.log('Recording stopped')
+  isRecording = false
+  
+  // Clear the interval
+  if (screenshotInterval) {
+    clearInterval(screenshotInterval)
+    screenshotInterval = null
+  }
+  
+  // Notify renderer of state change
+  if (win) {
+    win.webContents.send('recording-state-changed', false)
+  }
 })

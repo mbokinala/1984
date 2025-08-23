@@ -9,65 +9,48 @@ interface OverlayBarProps {
 
 const OverlayBar: React.FC<OverlayBarProps> = ({ onClose, onHide }) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (isRecording) {
-      // Start screenshot capture every 5 seconds
-      const screenshotId = setInterval(() => {
-        captureScreen();
-      }, 5000);
-
-      // Capture immediately when starting
-      captureScreen();
-
-      setIntervalId(screenshotId);
-
-      return () => {
-        clearInterval(screenshotId);
-      };
-    } else {
-      // Reset when stopped
-      if (intervalId) {
-        clearInterval(intervalId);
-        setIntervalId(null);
-      }
-    }
-  }, [isRecording]);
-
-  // Listen for toggle recording from global shortcut
+  // Get initial recording state when component mounts
   useEffect(() => {
     if (window.ipcRenderer) {
-      const handleToggleRecording = () => {
-        toggleRecording();
+      // Get current recording state from main process
+      window.ipcRenderer.invoke('get-recording-state').then((recording: boolean) => {
+        setIsRecording(recording);
+      });
+    }
+  }, []);
+
+  // Listen for recording state changes from main process
+  useEffect(() => {
+    if (window.ipcRenderer) {
+      const handleRecordingStateChange = (_event: any, recording: boolean) => {
+        setIsRecording(recording);
       };
 
-      window.ipcRenderer.on('toggle-recording', handleToggleRecording);
+      window.ipcRenderer.on('recording-state-changed', handleRecordingStateChange);
 
       return () => {
-        window.ipcRenderer.off('toggle-recording', handleToggleRecording);
+        window.ipcRenderer.off('recording-state-changed', handleRecordingStateChange);
       };
     }
   }, []);
 
-  const captureScreen = async () => {
-    try {
-      const result = await window.electronAPI.takeScreenshot();
-      if (result.success) {
-        console.log('Screenshot saved:', result.path);
-      } else {
-        console.error('Failed to capture screen:', result.error);
-      }
-    } catch (error) {
-      console.error('Error capturing screen:', error);
-    }
-  };
-
   const toggleRecording = () => {
-    setIsRecording(!isRecording);
+    const newState = !isRecording;
+    // Send message to main process to handle recording
+    if (window.ipcRenderer) {
+      window.ipcRenderer.send(newState ? 'recording-started' : 'recording-stopped');
+    }
+    setIsRecording(newState);
   };
 
   const handleClose = () => {
+    // Stop recording before quitting
+    if (isRecording) {
+      if (window.ipcRenderer) {
+        window.ipcRenderer.send('recording-stopped');
+      }
+    }
     // Quit the entire app via IPC
     if (window.ipcRenderer) {
       window.ipcRenderer.send('quit-app');

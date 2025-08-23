@@ -14,6 +14,8 @@ function App() {
 
       const handleShow = () => {
         setIsHidden(false);
+        // Request current recording state when showing
+        window.ipcRenderer.invoke('get-recording-state');
       };
 
       const handleHide = () => {

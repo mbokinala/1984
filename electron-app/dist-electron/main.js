@@ -10,6 +10,8 @@ const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let win;
+let screenshotInterval = null;
+let isRecording = false;
 function createWindow() {
   win = new BrowserWindow({
     width: 420,
@@ -197,6 +199,9 @@ function setupWindowHandlers() {
   });
   ipcMain.on("overlay-hidden", () => {
   });
+  ipcMain.handle("get-recording-state", () => {
+    return isRecording;
+  });
   ipcMain.on("minimize-window", () => {
     if (win) {
       win.minimize();
@@ -229,11 +234,30 @@ function setupGlobalShortcuts() {
       win.show();
       win.focus();
       win.webContents.send("show-overlay");
+      win.webContents.send("recording-state-changed", isRecording);
     }
   });
   globalShortcut.register("CommandOrControl+Shift+R", () => {
+    if (isRecording) {
+      isRecording = false;
+      if (screenshotInterval) {
+        clearInterval(screenshotInterval);
+        screenshotInterval = null;
+      }
+      console.log("Recording stopped via shortcut");
+    } else {
+      isRecording = true;
+      if (screenshotInterval) {
+        clearInterval(screenshotInterval);
+      }
+      captureScreenshot();
+      screenshotInterval = setInterval(() => {
+        captureScreenshot();
+      }, 5e3);
+      console.log("Recording started via shortcut");
+    }
     if (win) {
-      win.webContents.send("toggle-recording");
+      win.webContents.send("recording-state-changed", isRecording);
     }
   });
 }
@@ -241,12 +265,78 @@ app.on("activate", () => {
   if (win) {
     win.show();
     win.webContents.send("show-overlay");
+    win.webContents.send("recording-state-changed", isRecording);
   } else if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
 });
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+  if (screenshotInterval) {
+    clearInterval(screenshotInterval);
+  }
+});
+async function captureScreenshot() {
+  try {
+    if (win) {
+      win.setContentProtection(true);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+    const sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width, height }
+    });
+    const screenSource = sources.find(
+      (source) => source.name === "Entire Screen" || source.name.includes("Screen") || source.name === "Desktop"
+    ) || sources[0];
+    if (!screenSource) {
+      throw new Error("No screen source found");
+    }
+    const screenshot = screenSource.thumbnail;
+    const buffer = screenshot.toPNG();
+    if (win) {
+      win.setContentProtection(false);
+    }
+    const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+    if (!existsSync(screenshotDir)) {
+      await mkdir(screenshotDir, { recursive: true });
+    }
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+    const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`);
+    await writeFile(screenshotPath, buffer);
+    console.log("Screenshot saved:", screenshotPath);
+    return { success: true, path: screenshotPath };
+  } catch (error) {
+    console.error("Screenshot error:", error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+ipcMain.on("recording-started", () => {
+  console.log("Recording started");
+  isRecording = true;
+  if (screenshotInterval) {
+    clearInterval(screenshotInterval);
+  }
+  captureScreenshot();
+  screenshotInterval = setInterval(() => {
+    captureScreenshot();
+  }, 5e3);
+  if (win) {
+    win.webContents.send("recording-state-changed", true);
+  }
+});
+ipcMain.on("recording-stopped", () => {
+  console.log("Recording stopped");
+  isRecording = false;
+  if (screenshotInterval) {
+    clearInterval(screenshotInterval);
+    screenshotInterval = null;
+  }
+  if (win) {
+    win.webContents.send("recording-state-changed", false);
+  }
 });
 export {
   MAIN_DIST,
