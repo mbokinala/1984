@@ -1,9 +1,8 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, screen } from "electron";
-import { createRequire } from "node:module";
+import { app, BrowserWindow, ipcMain, screen, desktopCapturer } from "electron";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { writeFile } from "node:fs/promises";
-createRequire(import.meta.url);
+import { mkdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
@@ -13,7 +12,14 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 let win;
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+    width: 400,
+    height: 80,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    hasShadow: false,
+    skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
@@ -44,22 +50,29 @@ app.on("activate", () => {
 app.whenReady().then(() => {
   createWindow();
   setupScreenshotHandlers();
+  setupWindowHandlers();
 });
 function setupScreenshotHandlers() {
-  ipcMain.handle("take-screenshot", async () => {
+  ipcMain.handle("capture-screen", async () => {
     try {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width, height } = primaryDisplay.workAreaSize;
       const sources = await desktopCapturer.getSources({
-        types: ["window", "screen"],
-        thumbnailSize: screen.getPrimaryDisplay().workAreaSize
+        types: ["screen"],
+        thumbnailSize: { width, height }
       });
-      const screenSource = sources.find((source) => source.name === "Entire Screen" || source.name.includes("Screen"));
+      const screenSource = sources[0];
       if (!screenSource) {
         throw new Error("No screen source found");
       }
       const screenshot = screenSource.thumbnail;
       const buffer = screenshot.toPNG();
+      const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+      if (!existsSync(screenshotDir)) {
+        await mkdir(screenshotDir, { recursive: true });
+      }
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-      const screenshotPath = path.join(app.getPath("pictures"), `screenshot-${timestamp}.png`);
+      const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`);
       await writeFile(screenshotPath, buffer);
       return {
         success: true,
@@ -71,7 +84,42 @@ function setupScreenshotHandlers() {
       console.error("Screenshot error:", error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  });
+  ipcMain.handle("take-screenshot", async () => {
+    try {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width, height } = primaryDisplay.workAreaSize;
+      const sources = await desktopCapturer.getSources({
+        types: ["screen"],
+        thumbnailSize: { width, height }
+      });
+      const screenSource = sources[0];
+      if (!screenSource) {
+        throw new Error("No screen source found");
+      }
+      const screenshot = screenSource.thumbnail;
+      const buffer = screenshot.toPNG();
+      const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+      if (!existsSync(screenshotDir)) {
+        await mkdir(screenshotDir, { recursive: true });
+      }
+      const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+      const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`);
+      await writeFile(screenshotPath, buffer);
+      return {
+        success: true,
+        dataURL: screenshot.toDataURL(),
+        path: screenshotPath,
+        size: screenshot.getSize()
+      };
+    } catch (error) {
+      console.error("Screenshot error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   });
@@ -104,8 +152,12 @@ function setupScreenshotHandlers() {
       }
       const screenshot = source.thumbnail;
       const buffer = screenshot.toPNG();
+      const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+      if (!existsSync(screenshotDir)) {
+        await mkdir(screenshotDir, { recursive: true });
+      }
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-      const screenshotPath = path.join(app.getPath("pictures"), `screenshot-${source.name}-${timestamp}.png`);
+      const screenshotPath = path.join(screenshotDir, `screenshot-${source.name}-${timestamp}.png`);
       await writeFile(screenshotPath, buffer);
       return {
         success: true,
@@ -118,8 +170,30 @@ function setupScreenshotHandlers() {
       console.error("Capture error:", error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       };
+    }
+  });
+}
+function setupWindowHandlers() {
+  ipcMain.on("minimize-window", () => {
+    if (win) {
+      win.minimize();
+    }
+  });
+  ipcMain.on("close-window", () => {
+    if (win) {
+      win.close();
+    }
+  });
+  ipcMain.on("hide-window", () => {
+    if (win) {
+      win.hide();
+    }
+  });
+  ipcMain.on("show-window", () => {
+    if (win) {
+      win.show();
     }
   });
 }

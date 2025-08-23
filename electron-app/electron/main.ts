@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, screen, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, desktopCapturer, screen } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { writeFile } from 'node:fs/promises'
+import { writeFile, mkdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 
-const require = createRequire(import.meta.url)
+// const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // The built directory structure
@@ -29,7 +30,14 @@ let win: BrowserWindow | null
 
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    width: 400,
+    height: 80,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    hasShadow: false,
+    skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
@@ -72,21 +80,26 @@ app.on('activate', () => {
 app.whenReady().then(() => {
   createWindow()
   setupScreenshotHandlers()
+  setupWindowHandlers()
 })
 
 // Screenshot functionality
 function setupScreenshotHandlers() {
-  // Handler for taking screenshots
-  ipcMain.handle('take-screenshot', async () => {
+  // Handler for capturing the entire screen
+  ipcMain.handle('capture-screen', async () => {
     try {
-      // Get all available sources (screens and windows)
+      // Get the primary display
+      const primaryDisplay = screen.getPrimaryDisplay()
+      const { width, height } = primaryDisplay.workAreaSize
+
+      // Get all available sources (screens)
       const sources = await desktopCapturer.getSources({
-        types: ['window', 'screen'],
-        thumbnailSize: screen.getPrimaryDisplay().workAreaSize
+        types: ['screen'],
+        thumbnailSize: { width, height }
       })
 
       // Find the main screen source
-      const screenSource = sources.find(source => source.name === 'Entire Screen' || source.name.includes('Screen'))
+      const screenSource = sources[0]
       
       if (!screenSource) {
         throw new Error('No screen source found')
@@ -98,9 +111,15 @@ function setupScreenshotHandlers() {
       // Convert to buffer
       const buffer = screenshot.toPNG()
 
-      // Optional: Save to file
+      // Create directory if it doesn't exist
+      const screenshotDir = path.join(app.getPath('home'), 'Library', 'Pictures', 'ScreenCap')
+      if (!existsSync(screenshotDir)) {
+        await mkdir(screenshotDir, { recursive: true })
+      }
+
+      // Save to file with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      const screenshotPath = path.join(app.getPath('pictures'), `screenshot-${timestamp}.png`)
+      const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`)
       await writeFile(screenshotPath, buffer)
 
       // Return the screenshot data
@@ -114,7 +133,60 @@ function setupScreenshotHandlers() {
       console.error('Screenshot error:', error)
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  // Handler for taking a screenshot (alias for capture-screen)
+  ipcMain.handle('take-screenshot', async () => {
+    try {
+      // Get the primary display
+      const primaryDisplay = screen.getPrimaryDisplay()
+      const { width, height } = primaryDisplay.workAreaSize
+
+      // Get all available sources (screens)
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width, height }
+      })
+
+      // Find the main screen source
+      const screenSource = sources[0]
+      
+      if (!screenSource) {
+        throw new Error('No screen source found')
+      }
+
+      // Get the thumbnail as a NativeImage
+      const screenshot = screenSource.thumbnail
+
+      // Convert to buffer
+      const buffer = screenshot.toPNG()
+
+      // Create directory if it doesn't exist
+      const screenshotDir = path.join(app.getPath('home'), 'Library', 'Pictures', 'ScreenCap')
+      if (!existsSync(screenshotDir)) {
+        await mkdir(screenshotDir, { recursive: true })
+      }
+
+      // Save to file with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`)
+      await writeFile(screenshotPath, buffer)
+
+      // Return the screenshot data
+      return {
+        success: true,
+        dataURL: screenshot.toDataURL(),
+        path: screenshotPath,
+        size: screenshot.getSize()
+      }
+    } catch (error) {
+      console.error('Screenshot error:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
       }
     }
   })
@@ -156,9 +228,15 @@ function setupScreenshotHandlers() {
       const screenshot = source.thumbnail
       const buffer = screenshot.toPNG()
 
+      // Create directory if it doesn't exist
+      const screenshotDir = path.join(app.getPath('home'), 'Library', 'Pictures', 'ScreenCap')
+      if (!existsSync(screenshotDir)) {
+        await mkdir(screenshotDir, { recursive: true })
+      }
+
       // Save to file
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      const screenshotPath = path.join(app.getPath('pictures'), `screenshot-${source.name}-${timestamp}.png`)
+      const screenshotPath = path.join(screenshotDir, `screenshot-${source.name}-${timestamp}.png`)
       await writeFile(screenshotPath, buffer)
 
       return {
@@ -172,8 +250,35 @@ function setupScreenshotHandlers() {
       console.error('Capture error:', error)
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       }
+    }
+  })
+}
+
+// Window control handlers
+function setupWindowHandlers() {
+  ipcMain.on('minimize-window', () => {
+    if (win) {
+      win.minimize()
+    }
+  })
+
+  ipcMain.on('close-window', () => {
+    if (win) {
+      win.close()
+    }
+  })
+
+  ipcMain.on('hide-window', () => {
+    if (win) {
+      win.hide()
+    }
+  })
+
+  ipcMain.on('show-window', () => {
+    if (win) {
+      win.show()
     }
   })
 }
