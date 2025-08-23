@@ -10,9 +10,8 @@ export default defineSchema({
     isAuthenticated: v.boolean(),
     lastAuthenticatedAt: v.optional(v.number()),
     electronAppLinked: v.optional(v.boolean()),
-  })
-    .index("by_clerk_id", ["clerkId"]),
-  
+  }).index("by_clerk_id", ["clerkId"]),
+
   authSessions: defineTable({
     userId: v.id("users"),
     sessionToken: v.string(),
@@ -24,4 +23,11 @@ export default defineSchema({
     .index("by_token", ["sessionToken"])
     .index("by_user", ["userId"])
     .index("by_electron_app", ["electronAppId"]),
+
+  recordings: defineTable({
+    ownerId: v.id("users"),
+    video: v.id("_storage"),
+    startTime: v.number(), // unix ms timestamp of beginning of video
+    realWorldTime: v.number(), // number of milliseconds represented by the video
+  }),
 });
