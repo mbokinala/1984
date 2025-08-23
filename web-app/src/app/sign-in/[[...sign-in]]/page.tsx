@@ -42,10 +42,11 @@ export default function SignInPage() {
       if (user && isElectronAuth && electronAppId) {
         try {
           console.log("Starting electron auth flow for:", electronAppId);
+          console.log("User object from Clerk:", user);
           
           // Store user in Convex (idempotent operation)
-          await storeUser();
-          console.log("User stored in Convex");
+          const userId = await storeUser();
+          console.log("User stored in Convex with ID:", userId);
 
           // Link electron app to user
           await linkElectronApp({ electronAppId });
@@ -59,11 +60,16 @@ export default function SignInPage() {
           }, 1500);
         } catch (error) {
           console.error("Error handling electron auth:", error);
+          // Still redirect even if there's an error storing user
+          setTimeout(() => {
+            router.push("/dashboard?electronAuth=error");
+          }, 1500);
         }
       } else if (user && !isElectronAuth) {
         // Normal sign-in flow - store user and redirect
         try {
-          await storeUser();
+          const userId = await storeUser();
+          console.log("User stored in Convex with ID:", userId);
           router.push("/dashboard");
         } catch (error) {
           console.error("Error storing user:", error);

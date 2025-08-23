@@ -50,7 +50,14 @@ export default function Page() {
   // Store user in Convex when authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      storeUser().catch(console.error)
+      console.log("Dashboard: Storing user in Convex", user);
+      storeUser()
+        .then((userId) => {
+          console.log("Dashboard: User stored successfully with ID:", userId);
+        })
+        .catch((error) => {
+          console.error("Dashboard: Error storing user:", error);
+        });
     }
   }, [isAuthenticated, user, storeUser])
 

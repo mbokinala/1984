@@ -16820,6 +16820,7 @@ function setupAuthHandlers() {
     }
   });
   ipcMain.handle("check-auth-status", async () => {
+    console.log("Check auth status called, returning:", { isAuthenticated, user: authUser });
     return { isAuthenticated, user: authUser };
   });
   ipcMain.handle("logout", async () => {
@@ -16851,10 +16852,23 @@ async function checkAuthStatus() {
         if (response.data.authenticated) {
           isAuthenticated = true;
           authUser = response.data.user;
+          console.log("Session restored, user data:", authUser);
+          try {
+            const userResponse = await axios.post(
+              "http://localhost:3000/api/electron-user",
+              { electronAppId: session.electronAppId }
+            );
+            if (userResponse.data.success && userResponse.data.user) {
+              authUser = userResponse.data.user;
+              console.log("Fresh user data from Convex:", authUser);
+            }
+          } catch (error) {
+            console.error("Error fetching fresh user data:", error);
+          }
           if (win) {
             win.webContents.send("auth-status-changed", {
               isAuthenticated: true,
-              user: session.user
+              user: authUser
             });
           }
         } else {
@@ -16893,6 +16907,19 @@ function startAuthCheck(electronAppId) {
           authCheckInterval = null;
           isAuthenticated = true;
           authUser = data.user;
+          console.log("Authentication successful, user data:", authUser);
+          try {
+            const userResponse = await axios.post(
+              "http://localhost:3000/api/electron-user",
+              { electronAppId }
+            );
+            if (userResponse.data.success && userResponse.data.user) {
+              authUser = userResponse.data.user;
+              console.log("Complete user data from Convex:", authUser);
+            }
+          } catch (error) {
+            console.error("Error fetching complete user data:", error);
+          }
           const sessionPath = path$1.join(app.getPath("userData"), "session.json");
           await writeFile(sessionPath, JSON.stringify({
             electronAppId,
@@ -16901,7 +16928,7 @@ function startAuthCheck(electronAppId) {
           if (win) {
             win.webContents.send("auth-status-changed", {
               isAuthenticated: true,
-              user: data.user
+              user: authUser
             });
           }
         }

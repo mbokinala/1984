@@ -10,6 +10,8 @@ export const store = mutation({
       throw new Error("Called storeUser without authentication present");
     }
 
+    console.log("Storing user with identity:", identity);
+
     // Check if we've already stored this identity before
     const user = await ctx.db
       .query("users")
@@ -19,24 +21,35 @@ export const store = mutation({
       .unique();
     
     if (user !== null) {
-      // If we've seen this identity before but the name has changed, update it
-      if (user.name !== identity.name) {
-        await ctx.db.patch(user._id, { 
-          name: identity.name || undefined,
-          email: identity.email || undefined,
-          imageUrl: identity.pictureUrl || undefined,
-        });
-      }
+      // Update existing user with latest data
+      console.log("Updating existing user:", user._id);
+      await ctx.db.patch(user._id, { 
+        name: identity.name || identity.givenName || identity.familyName || undefined,
+        email: identity.email || undefined,
+        imageUrl: identity.pictureUrl || identity.picture || undefined,
+        // Update clerk-specific fields if they exist
+        clerkId: identity.subject || undefined,
+        isAuthenticated: true,
+        lastAuthenticatedAt: Date.now(),
+      });
       return user._id;
     }
     
     // If it's a new identity, create a new `User`
-    return await ctx.db.insert("users", {
-      name: identity.name || undefined,
+    console.log("Creating new user for token:", identity.tokenIdentifier);
+    const newUserId = await ctx.db.insert("users", {
+      name: identity.name || identity.givenName || identity.familyName || undefined,
       tokenIdentifier: identity.tokenIdentifier,
       email: identity.email || undefined,
-      imageUrl: identity.pictureUrl || undefined,
+      imageUrl: identity.pictureUrl || identity.picture || undefined,
+      // Add clerk-specific fields
+      clerkId: identity.subject || undefined,
+      isAuthenticated: true,
+      lastAuthenticatedAt: Date.now(),
+      electronAppLinked: false,
     });
+    console.log("Created new user:", newUserId);
+    return newUserId;
   },
 });
 

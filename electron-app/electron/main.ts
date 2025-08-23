@@ -146,6 +146,7 @@ function setupAuthHandlers() {
   
   // Handle auth status check
   ipcMain.handle("check-auth-status", async () => {
+    console.log("Check auth status called, returning:", { isAuthenticated, user: authUser });
     return { isAuthenticated, user: authUser };
   });
   
@@ -192,12 +193,27 @@ async function checkAuthStatus() {
         if (response.data.authenticated) {
           isAuthenticated = true;
           authUser = response.data.user;
+          console.log("Session restored, user data:", authUser);
           
-          // Notify renderer
+          // Fetch fresh user data from Convex
+          try {
+            const userResponse = await axios.post(
+              "http://localhost:3000/api/electron-user",
+              { electronAppId: session.electronAppId }
+            );
+            if (userResponse.data.success && userResponse.data.user) {
+              authUser = userResponse.data.user;
+              console.log("Fresh user data from Convex:", authUser);
+            }
+          } catch (error) {
+            console.error("Error fetching fresh user data:", error);
+          }
+          
+          // Notify renderer with fresh user data
           if (win) {
             win.webContents.send("auth-status-changed", { 
               isAuthenticated: true,
-              user: session.user 
+              user: authUser 
             });
           }
         } else {
@@ -249,6 +265,21 @@ function startAuthCheck(electronAppId: string) {
           
           isAuthenticated = true;
           authUser = data.user;
+          console.log("Authentication successful, user data:", authUser);
+          
+          // Fetch complete user data from Convex
+          try {
+            const userResponse = await axios.post(
+              "http://localhost:3000/api/electron-user",
+              { electronAppId: electronAppId }
+            );
+            if (userResponse.data.success && userResponse.data.user) {
+              authUser = userResponse.data.user;
+              console.log("Complete user data from Convex:", authUser);
+            }
+          } catch (error) {
+            console.error("Error fetching complete user data:", error);
+          }
           
           // Store session info
           const sessionPath = path.join(app.getPath("userData"), "session.json");
@@ -257,11 +288,11 @@ function startAuthCheck(electronAppId: string) {
             timestamp: Date.now() 
           }));
           
-          // Notify renderer
+          // Notify renderer with complete user data
           if (win) {
             win.webContents.send("auth-status-changed", { 
               isAuthenticated: true,
-              user: data.user 
+              user: authUser 
             });
           }
         }
