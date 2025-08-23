@@ -1,7 +1,7 @@
 "use node";
 
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText, ModelMessage } from "ai";
+import { generateText, GenerateTextResult, ModelMessage } from "ai";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 
@@ -22,12 +22,12 @@ export const getVideoSummary = internalAction({
 
     const messages: ModelMessage[] = [
       {
+        role: "system",
+        content: `You will be given a screen recording of a user's computer. Respond with a one line summary of what the user did in that clip. For example, "Sent an email to John." Write from the perspective of the user (but don't use the word "I").`,
+      },
+      {
         role: "user",
         content: [
-          {
-            type: "text",
-            text: "The video is a screen recording of a user's computer. Give a one line summary of what's going on in this video.",
-          },
           {
             type: "file",
             data: data,
@@ -37,10 +37,30 @@ export const getVideoSummary = internalAction({
       },
     ];
 
-    const result = await generateText({
-      model: google("gemini-2.5-flash"),
-      messages,
-    });
+    let result: GenerateTextResult<{}, string> | null = null;
+    const maxTries = 3;
+    for (let attempt = 1; attempt <= maxTries; attempt++) {
+      try {
+        result = await generateText({
+          model: google("gemini-2.5-pro"),
+          messages,
+        });
+        break; // Success, exit loop
+      } catch (err) {
+        if (attempt === maxTries) {
+          throw err;
+        }
+        // Exponential backoff with jitter
+        const baseDelay = 1000 * Math.pow(2, attempt - 1); // 1000ms, 2000ms, 4000ms
+        const jitter = Math.floor(Math.random() * 5000); // 0-99ms
+        const delay = baseDelay + jitter;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    if (!result) {
+      throw new Error("Failed to generate text");
+    }
 
     return result.text;
   },

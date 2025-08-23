@@ -1,7 +1,7 @@
 // convex/index.ts
 import { WorkflowManager } from "@convex-dev/workflow";
 import { v } from "convex/values";
-import { components, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import { mutation } from "./_generated/server";
 
 export const workflow = new WorkflowManager(components.workflow);
@@ -39,5 +39,17 @@ export const kickoffWorkflow = mutation({
     await workflow.start(ctx, internal.workflows.analyzeVideoWorkflow, {
       recordingId: args.recordingId,
     });
+  },
+});
+
+export const reprocessAllRecordings = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const recordings = await ctx.db.query("recordings").collect();
+    for (const recording of recordings) {
+      await ctx.scheduler.runAfter(0, api.workflows.kickoffWorkflow, {
+        recordingId: recording._id,
+      });
+    }
   },
 });
