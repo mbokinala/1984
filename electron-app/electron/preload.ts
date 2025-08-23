@@ -22,3 +22,10 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // You can expose other APTs you need here.
   // ...
 })
+
+// Expose screenshot API
+contextBridge.exposeInMainWorld('electronAPI', {
+  takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
+  getSources: () => ipcRenderer.invoke('get-sources'),
+  captureSource: (sourceId: string) => ipcRenderer.invoke('capture-source', sourceId)
+})
