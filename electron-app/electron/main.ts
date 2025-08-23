@@ -43,7 +43,7 @@ let nthFrameCallback:
   | ((frame: { path: string; timestamp: string }) => void)
   | null = null;
 let isRecording = false;
-let isAuthenticated = true; // TEMPORARY: Bypassing auth for testing
+let isAuthenticated = false;
 let authUser: any = null;
 let authCheckInterval: NodeJS.Timeout | null = null;
 const WEB_APP_URL =
@@ -119,7 +119,7 @@ app.whenReady().then(async () => {
 
     // Use the timestamp in the output filename
     const outputFilename = `output-${frame.timestamp}.mp4`;
-    execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
+    execSync(`./make_movie.sh 1 ${outputFilename}`, {
       cwd,
     });
 
@@ -147,7 +147,7 @@ app.whenReady().then(async () => {
     execSync(`rm ${cwd}/*.mp4`, {
       cwd,
     });
-  }, 5);
+  }, 60);
 });
 
 // Authentication handlers

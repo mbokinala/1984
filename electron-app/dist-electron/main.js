@@ -16747,7 +16747,7 @@ let screenshotInterval = null;
 let screenshotCounter = 0;
 let nthFrameCallback = null;
 let isRecording = false;
-let isAuthenticated = true;
+let isAuthenticated = false;
 let authUser = null;
 let authCheckInterval = null;
 const WEB_APP_URL = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://your-web-app.com";
@@ -16801,7 +16801,7 @@ app.whenReady().then(async () => {
       "ScreenCap"
     );
     const outputFilename = `output-${frame.timestamp}.mp4`;
-    execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
+    execSync(`./make_movie.sh 1 ${outputFilename}`, {
       cwd
     });
     const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording`;
@@ -16823,7 +16823,7 @@ app.whenReady().then(async () => {
     execSync(`rm ${cwd}/*.mp4`, {
       cwd
     });
-  }, 5);
+  }, 60);
 });
 function setupAuthHandlers() {
   ipcMain.handle("request-auth", async () => {
