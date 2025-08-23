@@ -12,19 +12,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing electronAppId" }, { status: 400 });
     }
 
-    // Simple check: Is this electron app authenticated?
-    const authData = await convex.query(api.electronAuth.checkElectronAuth, {
+    // Clear the electron session
+    await convex.mutation(api.electronAuth.clearElectronSession, {
       electronAppId,
     });
 
-    console.log(`Electron auth check for ${electronAppId}:`, authData.authenticated ? "authenticated" : "not authenticated");
+    console.log(`Cleared electron session for ${electronAppId}`);
 
-    return NextResponse.json(authData);
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Electron auth check error:", error);
+    console.error("Error clearing electron session:", error);
     return NextResponse.json(
-      { authenticated: false },
-      { status: 200 } // Return 200 even on error to avoid breaking the polling
+      { success: false },
+      { status: 200 } // Return 200 to avoid breaking the flow
     );
   }
 }
