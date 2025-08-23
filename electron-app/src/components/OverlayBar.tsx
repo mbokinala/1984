@@ -258,21 +258,24 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
                         <div className="w-px h-4 bg-white/10" />
 
             {/* User Display and Logout Button */}
-            <div className="flex items-center gap-2">
-              {user && (
-                <span className="text-xs text-white/70">
-                  {user.name || user.email || 'User'}
-                </span>
-              )}
+            <div className="flex items-center">
               <button
                 onClick={handleLogout}
-                className="p-1 hover:bg-white/5 rounded-full transition-all duration-200"
+                className=" hover:bg-white/5 rounded-full transition-all duration-200"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 title="Sign Out"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full bg-neutral-400 flex items-center justify-center">
                   <span className="text-[10px] font-semibold text-white">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    {user?.imageUrl ? (
+                      <img 
+                        src={user.imageUrl} 
+                        alt={user.name || 'User'} 
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      user?.name ? user.name.charAt(0).toUpperCase() : 'U'
+                    )}
                   </span>
                 </div>
               </button>
