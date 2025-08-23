@@ -43,7 +43,7 @@ let nthFrameCallback:
   | ((frame: { path: string; timestamp: string }) => void)
   | null = null;
 let isRecording = false;
-let isAuthenticated = true; // TEMPORARY: Bypassing auth for testing
+let isAuthenticated = false;
 let authUser: any = null;
 let authCheckInterval: NodeJS.Timeout | null = null;
 const WEB_APP_URL =
