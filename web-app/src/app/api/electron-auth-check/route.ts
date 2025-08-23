@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "@/convex/_generated/api";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL || "https://artful-duck-190.convex.cloud");
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,22 +14,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing electronAppId" }, { status: 400 });
     }
 
-    // Get JWT token from Convex for this electron app
-    const authData = await convex.query(api.auth.getElectronAuth, {
+    // Check if electron app is linked to a user
+    const authData = await convex.query(api.electronAuth.checkElectronAuth, {
       electronAppId,
     });
     
-    console.log("Auth data from Convex:", authData ? "Found" : "Not found");
+    console.log("Auth data from Convex:", authData);
 
-    if (authData && authData.jwtToken) {
-      return NextResponse.json({
-        authenticated: true,
-        jwtToken: authData.jwtToken, // Return JWT token instead of session token
-        user: authData.user,
-      });
-    }
-
-    return NextResponse.json({ authenticated: false });
+    return NextResponse.json(authData);
   } catch (error) {
     console.error("Electron auth check error:", error);
     return NextResponse.json(

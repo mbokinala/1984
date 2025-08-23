@@ -7,18 +7,18 @@ import Image from "next/image"
 import { Google } from "@/components/icons/icon"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { useAuth, useUser } from "@clerk/nextjs"
-import { ConvexProvider, useConvex, ConvexReactClient } from "convex/react"
-import { api } from "../../../../convex/_generated/api"
+import { useUser } from "@clerk/nextjs"
+import { useConvexAuth, useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
 
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
-function SignInContent() {
+export default function SignInPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoaded } = useUser();
-  const { getToken } = useAuth();
-  const convexClient = useConvex();
+  const { isAuthenticated } = useConvexAuth();
+  const storeUser = useMutation(api.users.store);
+  const linkElectronApp = useMutation(api.electronAuth.linkElectronApp);
+  
   const [isElectronAuth, setIsElectronAuth] = useState(false);
   const [electronAppId, setElectronAppId] = useState<string | null>(null);
   const [authComplete, setAuthComplete] = useState(false);
@@ -30,49 +30,26 @@ function SignInContent() {
     if (electronApp === "true" && appId) {
       setIsElectronAuth(true);
       setElectronAppId(appId);
+      console.log("Electron auth detected with app ID:", appId);
     }
   }, [searchParams]);
 
   useEffect(() => {
-    const handleElectronAuth = async () => {
-      console.log("handleElectronAuth called:", { 
-        isLoaded, 
-        hasUser: !!user, 
-        isElectronAuth, 
-        electronAppId, 
-        authComplete 
-      });
+    const handleAuth = async () => {
+      // Wait for both Clerk and Convex to be ready
+      if (!isLoaded || !isAuthenticated) return;
       
-      if (isLoaded && user && isElectronAuth && electronAppId && !authComplete) {
+      if (user && isElectronAuth && electronAppId) {
         try {
           console.log("Starting electron auth flow for:", electronAppId);
           
-          // Get JWT token from Clerk
-          const token = await getToken();
-          
-          if (!token) {
-            console.error("Failed to get JWT token from Clerk");
-            return;
-          }
-          
-          console.log("Got JWT token from Clerk");
-          
-          // Create or update user in Convex
-          const userId = await convexClient.mutation(api.auth.upsertUser, {
-            clerkId: user.id,
-            email: user.primaryEmailAddress?.emailAddress,
-            name: user.fullName || user.firstName || undefined,
-            imageUrl: user.imageUrl,
-          });
-          console.log("User upserted in Convex:", userId);
+          // Store user in Convex (idempotent operation)
+          await storeUser();
+          console.log("User stored in Convex");
 
-          // Store the JWT token with the electron app ID for retrieval
-          const { success } = await convexClient.mutation(api.auth.storeElectronAuth, {
-            electronAppId,
-            jwtToken: token,
-            clerkId: user.id,
-          });
-          console.log("JWT token stored for electron app:", success);
+          // Link electron app to user
+          await linkElectronApp({ electronAppId });
+          console.log("Electron app linked to user");
 
           setAuthComplete(true);
 
@@ -83,14 +60,20 @@ function SignInContent() {
         } catch (error) {
           console.error("Error handling electron auth:", error);
         }
-      } else if (isLoaded && user && !isElectronAuth) {
-        // Normal sign-in flow
-        router.push("/dashboard");
+      } else if (user && !isElectronAuth) {
+        // Normal sign-in flow - store user and redirect
+        try {
+          await storeUser();
+          router.push("/dashboard");
+        } catch (error) {
+          console.error("Error storing user:", error);
+          router.push("/dashboard");
+        }
       }
     };
 
-    handleElectronAuth();
-  }, [isLoaded, user, isElectronAuth, electronAppId, convexClient, router, authComplete]);
+    handleAuth();
+  }, [isLoaded, isAuthenticated, user, isElectronAuth, electronAppId, storeUser, linkElectronApp, router]);
 
   if (authComplete) {
     return (
@@ -133,20 +116,95 @@ function SignInContent() {
                                 <Clerk.Loading scope="provider:google">
                                   {(isLoading: boolean) =>
                                     isLoading ? (
-                                      <Loader className="size-4 animate-spin" />
+                                      <Loader className="animate-spin w-4 h-4" />
                                     ) : (
                                       <>
-                                        <Google className="size-4" />
-                                        <span className="text-md font-medium">Sign in with Google</span>
+                                        <Google className="w-4 h-4" />
+                                        Sign in with Google
                                       </>
                                     )
                                   }
                                 </Clerk.Loading>
                               </Button>
                             </Clerk.Connection>
+                          </div>
+
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <span className="w-full border-t" />
                             </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                              <span className="bg-background px-2 text-muted-foreground">
+                                Or continue with
+                              </span>
+                            </div>
+                          </div>
+
+                          <Clerk.Field name="identifier" className="space-y-2">
+                            <Clerk.Label className="text-sm font-medium">
+                              Email address
+                            </Clerk.Label>
+                            <Clerk.Input
+                              type="email"
+                              className="w-full px-3 py-2 border rounded-md"
+                              required
+                            />
+                            <Clerk.FieldError className="text-xs text-red-600" />
+                          </Clerk.Field>
+
+                          <SignIn.Action submit asChild>
+                            <Button
+                              className="w-full"
+                              disabled={isGlobalLoading}
+                            >
+                              <Clerk.Loading>
+                                {(isLoading: boolean) =>
+                                  isLoading ? (
+                                    <Loader className="animate-spin" />
+                                  ) : (
+                                    "Continue"
+                                  )
+                                }
+                              </Clerk.Loading>
+                            </Button>
+                          </SignIn.Action>
                         </div>
                       </div>
+                    </SignIn.Step>
+
+                    <SignIn.Step name="verifications">
+                      <SignIn.Strategy name="email_code">
+                        <div className="space-y-6">
+                          <div className="space-y-1 flex justify-center">
+                            <Image src="/logo.svg" alt="1984" width={220} height={100} /> 
+                          </div>
+                          
+                          <div className="text-center space-y-2">
+                            <h1 className="text-2xl font-semibold">Check your email</h1>
+                            <p className="text-sm text-muted-foreground">
+                              We sent a code to <SignIn.SafeIdentifier />
+                            </p>
+                          </div>
+
+                          <Clerk.Field name="code" className="space-y-2">
+                            <Clerk.Label className="text-sm font-medium">
+                              Verification code
+                            </Clerk.Label>
+                            <Clerk.Input
+                              type="otp"
+                              className="w-full px-3 py-2 border rounded-md text-center"
+                              required
+                            />
+                            <Clerk.FieldError className="text-xs text-red-600" />
+                          </Clerk.Field>
+
+                          <SignIn.Action submit asChild>
+                            <Button className="w-full" disabled={isGlobalLoading}>
+                              Continue
+                            </Button>
+                          </SignIn.Action>
+                        </div>
+                      </SignIn.Strategy>
                     </SignIn.Step>
                   </>
                 )}
@@ -155,14 +213,16 @@ function SignInContent() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-export default function SignInPage() {
-  return (
-    <ConvexProvider client={convex}>
-      <SignInContent />
-    </ConvexProvider>
+      {/* Right side - Hidden on mobile */}
+      <div className="hidden md:flex md:w-1/2 bg-black text-white p-8 min-h-screen items-center justify-center">
+        <div className="max-w-md">
+          <h1 className="text-4xl font-bold mb-4">Welcome to 1984</h1>
+          <p className="text-lg opacity-90">
+            Your AI-powered screen recording assistant that helps you remember everything.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

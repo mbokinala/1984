@@ -12,7 +12,6 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ConvexClient } from "convex/browser";
 import axios from "axios";
 
 // const require = createRequire(import.meta.url)
@@ -45,12 +44,8 @@ let nthFrameCallback:
   | null = null;
 let isRecording = false;
 let isAuthenticated = false;
-let authJwtToken: string | null = null;
-let convexClient: ConvexClient | null = null;
+let authUser: any = null;
 let authCheckInterval: NodeJS.Timeout | null = null;
-
-// Load environment variables
-const CONVEX_URL = "https://artful-duck-190.convex.cloud";
 const WEB_APP_URL = process.env.NODE_ENV === 'development' ? "http://localhost:3000" : "https://your-web-app.com";
 
 function createWindow() {
@@ -151,15 +146,14 @@ function setupAuthHandlers() {
   
   // Handle auth status check
   ipcMain.handle("check-auth-status", async () => {
-    return { isAuthenticated, jwtToken: authJwtToken };
+    return { isAuthenticated, user: authUser };
   });
   
   // Handle logout
   ipcMain.handle("logout", async () => {
-    // Simply clear the JWT token locally
-    // The token will expire on its own
+    // Clear authentication state
     isAuthenticated = false;
-    authJwtToken = null;
+    authUser = null;
     
     // Clear stored session
     const sessionPath = path.join(app.getPath("userData"), "session.json");
@@ -188,15 +182,16 @@ async function checkAuthStatus() {
       const sessionData = await readFile(sessionPath, "utf-8");
       const session = JSON.parse(sessionData);
       
-      if (session.token) {
-        // Initialize Convex client
-        convexClient = new ConvexClient(CONVEX_URL);
+      if (session.electronAppId) {
+        // Check if session is still valid by checking with the server
+        const response = await axios.post(
+          "http://localhost:3000/api/electron-auth-check",
+          { electronAppId: session.electronAppId }
+        );
         
-        // JWT tokens are self-contained, so we just check if it exists
-        // In production, you might want to verify the JWT signature
-        if (session.token) {
+        if (response.data.authenticated) {
           isAuthenticated = true;
-          authJwtToken = session.token;
+          authUser = response.data.user;
           
           // Notify renderer
           if (win) {
@@ -247,21 +242,18 @@ function startAuthCheck(electronAppId: string) {
       if (response.status === 200) {
         const data = response.data;
         
-        if (data.authenticated && data.jwtToken) {
+        if (data.authenticated && data.user) {
           // Authentication successful
           clearInterval(authCheckInterval!);
           authCheckInterval = null;
           
           isAuthenticated = true;
-          authJwtToken = data.jwtToken;
+          authUser = data.user;
           
-          // Initialize Convex client
-          convexClient = new ConvexClient(CONVEX_URL);
-          
-          // Store JWT token
+          // Store session info
           const sessionPath = path.join(app.getPath("userData"), "session.json");
           await writeFile(sessionPath, JSON.stringify({ 
-            token: data.jwtToken,
+            electronAppId: electronAppId,
             timestamp: Date.now() 
           }));
           

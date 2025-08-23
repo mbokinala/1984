@@ -10,7 +10,7 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authStatus, setAuthStatus] = useState<'checking' | 'unauthenticated' | 'authenticating' | 'authenticated'>('checking');
-  const [, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -21,15 +21,21 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
     if (window.ipcRenderer) {
       setAuthStatus('checking');
       const result = await window.ipcRenderer.invoke('check-auth-status');
+      console.log('Check auth status result:', result);
       if (result.isAuthenticated) {
         setIsAuthenticated(true);
         setAuthStatus('authenticated');
+        setUser(result.user || null);
+        if (result.user) {
+          console.log('User from check-auth-status:', result.user);
+        }
         // Get recording state after auth check
         const recording = await window.ipcRenderer.invoke('get-recording-state');
         setIsRecording(recording);
       } else {
         setIsAuthenticated(false);
         setAuthStatus('unauthenticated');
+        setUser(null);
       }
     }
   };
@@ -42,8 +48,12 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
       };
 
       const handleAuthStatusChange = (_event: any, data: any) => {
+        console.log('Auth status changed:', data);
         setIsAuthenticated(data.isAuthenticated);
         setUser(data.user || null);
+        if (data.user) {
+          console.log('User data received:', data.user);
+        }
         if (data.isAuthenticated) {
           setAuthStatus('authenticated');
         } else {
@@ -245,10 +255,28 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
               <span className="text-[10px] ml-1 opacity-50">⌘⇧H</span>
             </button>
 
-            <div className="w-px h-4 bg-white/10" />
+                        <div className="w-px h-4 bg-white/10" />
 
-            {/* Logout Button - Simple implementation since UserButton requires full Clerk auth */}
-        
+            {/* User Display and Logout Button */}
+            <div className="flex items-center gap-2">
+              {user && (
+                <span className="text-xs text-white/70">
+                  {user.name || user.email || 'User'}
+                </span>
+              )}
+              <button
+                onClick={handleLogout}
+                className="p-1 hover:bg-white/5 rounded-full transition-all duration-200"
+                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                title="Sign Out"
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                  <span className="text-[10px] font-semibold text-white">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </span>
+                </div>
+              </button>
+            </div>
           </>
         )}
 

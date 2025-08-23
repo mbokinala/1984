@@ -21,14 +21,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useAuth } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
+import { useConvexAuth, useMutation } from "convex/react"
+import { api } from "@/convex/_generated/api"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { CheckCircle } from "lucide-react"
 
 
 export default function Page() {
-  const { isLoaded, isSignedIn } = useAuth()
+  const { user, isLoaded } = useUser()
+  const { isAuthenticated } = useConvexAuth()
+  const storeUser = useMutation(api.users.store)
   const searchParams = useSearchParams()
   const [showAuthSuccess, setShowAuthSuccess] = useState(false)
 
@@ -42,6 +46,13 @@ export default function Page() {
       }, 3000)
     }
   }, [searchParams])
+
+  // Store user in Convex when authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      storeUser().catch(console.error)
+    }
+  }, [isAuthenticated, user, storeUser])
 
 
   return (
