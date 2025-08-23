@@ -104,11 +104,10 @@ export default function Page() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
               Successfully Authenticated!
             </DialogTitle>
             <DialogDescription>
-              Your desktop app is now connected. The 1984 Desktop App will launch automatically.
+              Your desktop app is now connected. 1984 will launch automatically.
             </DialogDescription>
           </DialogHeader>
         </DialogContent>

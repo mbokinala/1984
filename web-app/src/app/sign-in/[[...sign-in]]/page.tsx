@@ -89,10 +89,9 @@ export default function SignInPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
-          <CheckCircle className="w-16 h-16 text-green-500" />
+          <Image src="/logo.svg" alt="1984" width={220} height={100} /> 
           <h2 className="text-2xl font-semibold">Successfully Authenticated!</h2>
-          <p className="text-gray-600">Launching 1984 Desktop App...</p>
-          <p className="text-sm text-gray-500">You can close this window</p>
+          <p className="text-gray-600">Launching 1984...</p>
         </div>
       </div>
     );
@@ -107,116 +106,39 @@ export default function SignInPage() {
             <SignIn.Root>
               <Clerk.Loading>
                 {(isGlobalLoading: boolean) => (
-                  <>
-                    <SignIn.Step name="start">
-                      <div className="space-y-6">
-                        <div className="space-y-1 flex justify-center">
-                          <Image src="/logo.svg" alt="1984" width={220} height={100} /> 
-                        </div>
+                  <SignIn.Step name="start">
+                    <div className="space-y-6">
+                      <div className="space-y-1 flex justify-center">
+                        <Image src="/logo.svg" alt="1984" width={220} height={100} /> 
+                      </div>
 
-                        <div className="space-y-4 mt-10">
-                          <div className="flex justify-center">
-                            <Clerk.Connection name="google" asChild>
-                              <Button
-                                variant="outline"
-                                type="button"
-                                className="w-4/7 h-8 rounded-xl border border-gray-300 flex items-center justify-center gap-3 bg-transparent"
-                                disabled={isGlobalLoading}
-                              >
-                                <Clerk.Loading scope="provider:google">
-                                  {(isLoading: boolean) =>
-                                    isLoading ? (
-                                      <Loader className="animate-spin w-4 h-4" />
-                                    ) : (
-                                      <>
-                                        <Google className="w-4 h-4" />
-                                        Sign in with Google
-                                      </>
-                                    )
-                                  }
-                                </Clerk.Loading>
-                              </Button>
-                            </Clerk.Connection>
-                          </div>
-
-                          <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                              <span className="w-full border-t" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                              <span className="bg-background px-2 text-muted-foreground">
-                                Or continue with
-                              </span>
-                            </div>
-                          </div>
-
-                          <Clerk.Field name="identifier" className="space-y-2">
-                            <Clerk.Label className="text-sm font-medium">
-                              Email address
-                            </Clerk.Label>
-                            <Clerk.Input
-                              type="email"
-                              className="w-full px-3 py-2 border rounded-md"
-                              required
-                            />
-                            <Clerk.FieldError className="text-xs text-red-600" />
-                          </Clerk.Field>
-
-                          <SignIn.Action submit asChild>
+                      <div className="space-y-4 mt-10">
+                        <div className="flex justify-center">
+                          <Clerk.Connection name="google" asChild>
                             <Button
-                              className="w-full"
+                              variant="outline"
+                              type="button"
+                              className="w-4/7 h-8 rounded-xl border border-gray-300 flex items-center justify-center gap-3 bg-transparent"
                               disabled={isGlobalLoading}
                             >
-                              <Clerk.Loading>
+                              <Clerk.Loading scope="provider:google">
                                 {(isLoading: boolean) =>
                                   isLoading ? (
-                                    <Loader className="animate-spin" />
+                                    <Loader className="animate-spin w-4 h-4" />
                                   ) : (
-                                    "Continue"
+                                    <>
+                                      <Google className="w-4 h-4" />
+                                      Sign in with Google
+                                    </>
                                   )
                                 }
                               </Clerk.Loading>
                             </Button>
-                          </SignIn.Action>
+                          </Clerk.Connection>
                         </div>
                       </div>
-                    </SignIn.Step>
-
-                    <SignIn.Step name="verifications">
-                      <SignIn.Strategy name="email_code">
-                        <div className="space-y-6">
-                          <div className="space-y-1 flex justify-center">
-                            <Image src="/logo.svg" alt="1984" width={220} height={100} /> 
-                          </div>
-                          
-                          <div className="text-center space-y-2">
-                            <h1 className="text-2xl font-semibold">Check your email</h1>
-                            <p className="text-sm text-muted-foreground">
-                              We sent a code to <SignIn.SafeIdentifier />
-                            </p>
-                          </div>
-
-                          <Clerk.Field name="code" className="space-y-2">
-                            <Clerk.Label className="text-sm font-medium">
-                              Verification code
-                            </Clerk.Label>
-                            <Clerk.Input
-                              type="otp"
-                              className="w-full px-3 py-2 border rounded-md text-center"
-                              required
-                            />
-                            <Clerk.FieldError className="text-xs text-red-600" />
-                          </Clerk.Field>
-
-                          <SignIn.Action submit asChild>
-                            <Button className="w-full" disabled={isGlobalLoading}>
-                              Continue
-                            </Button>
-                          </SignIn.Action>
-                        </div>
-                      </SignIn.Strategy>
-                    </SignIn.Step>
-                  </>
+                    </div>
+                  </SignIn.Step>
                 )}
               </Clerk.Loading>
             </SignIn.Root>
