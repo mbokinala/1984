@@ -1,4 +1,5 @@
 import { app, ipcMain, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -11,6 +12,8 @@ const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let win;
 let screenshotInterval = null;
+let screenshotCounter = 0;
+let nthFrameCallback = null;
 let isRecording = false;
 function createWindow() {
   win = new BrowserWindow({
@@ -51,6 +54,19 @@ app.whenReady().then(() => {
   setupScreenshotHandlers();
   setupWindowHandlers();
   setupGlobalShortcuts();
+  setNthFrameCallback((frame) => {
+    console.log("20th frame captured");
+    const cwd = path.join(
+      app.getPath("home"),
+      "Library",
+      "Pictures",
+      "ScreenCap"
+    );
+    const outputFilename = `output-${frame.timestamp}.mp4`;
+    execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
+      cwd
+    });
+  }, 5);
 });
 function setupScreenshotHandlers() {
   ipcMain.handle("capture-screen", async () => {
@@ -314,7 +330,14 @@ app.on("will-quit", () => {
     clearInterval(screenshotInterval);
   }
 });
+let frameInterval = 5;
+function setNthFrameCallback(callback, n = 5) {
+  nthFrameCallback = callback;
+  frameInterval = n;
+  screenshotCounter = 0;
+}
 async function captureScreenshot() {
+  screenshotCounter++;
   try {
     if (win) {
       win.setContentProtection(true);
@@ -367,6 +390,12 @@ async function captureScreenshot() {
     );
     await writeFile(screenshotPath, buffer);
     console.log("Screenshot saved:", screenshotPath);
+    if (nthFrameCallback && screenshotCounter % frameInterval === 0) {
+      nthFrameCallback({
+        path: screenshotPath,
+        timestamp
+      });
+    }
     return { success: true, path: screenshotPath };
   } catch (error) {
     console.error("Screenshot error:", error);

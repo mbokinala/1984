@@ -6,6 +6,7 @@ import {
   ipcMain,
   screen,
 } from "electron";
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -35,6 +36,10 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null;
 let screenshotInterval: NodeJS.Timeout | null = null;
+let screenshotCounter = 0;
+let nthFrameCallback:
+  | ((frame: { path: string; timestamp: string }) => void)
+  | null = null;
 let isRecording = false;
 
 function createWindow() {
@@ -87,6 +92,26 @@ app.whenReady().then(() => {
   setupScreenshotHandlers();
   setupWindowHandlers();
   setupGlobalShortcuts();
+
+  // Register callback for every 20th frame
+  setNthFrameCallback((frame) => {
+    // Function triggered after every 20th frame is captured
+    // TODO: Add processing logic here
+    console.log("20th frame captured");
+
+    const cwd = path.join(
+      app.getPath("home"),
+      "Library",
+      "Pictures",
+      "ScreenCap"
+    );
+
+    // Use the timestamp in the output filename
+    const outputFilename = `output-${frame.timestamp}.mp4`;
+    execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
+      cwd,
+    });
+  }, 5);
 });
 
 // Screenshot functionality
@@ -455,8 +480,19 @@ app.on("will-quit", () => {
   }
 });
 
-// Screenshot capture function - THIS IS THE REAL ONE
+let frameInterval = 5; // Store the N value
+
+function setNthFrameCallback(
+  callback: (frame: { path: string; timestamp: string }) => void,
+  n: number = 5
+) {
+  nthFrameCallback = callback;
+  frameInterval = n;
+  screenshotCounter = 0;
+}
+
 async function captureScreenshot() {
+  screenshotCounter++;
   try {
     // Temporarily set window to not capture
     if (win) {
@@ -538,6 +574,14 @@ async function captureScreenshot() {
     await writeFile(screenshotPath, buffer);
 
     console.log("Screenshot saved:", screenshotPath);
+
+    // Trigger Nth frame callback if set
+    if (nthFrameCallback && screenshotCounter % frameInterval === 0) {
+      nthFrameCallback({
+        path: screenshotPath,
+        timestamp: timestamp,
+      });
+    }
     return { success: true, path: screenshotPath };
   } catch (error) {
     console.error("Screenshot error:", error);
