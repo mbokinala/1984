@@ -8,9 +8,9 @@ interface OverlayBarProps {
 
 const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authStatus, setAuthStatus] = useState<'checking' | 'unauthenticated' | 'authenticating' | 'authenticated'>('checking');
-  const [user, setUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [authStatus, setAuthStatus] = useState<'checking' | 'unauthenticated' | 'authenticating' | 'authenticated'>('authenticated');
+  const [user, setUser] = useState<any>({ name: 'Demo User', email: 'demo@example.com' });
 
   // Check authentication status on mount
   useEffect(() => {
@@ -18,25 +18,14 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
   }, []);
 
   const checkAuthStatus = async () => {
+    // Bypass auth check - always authenticated
     if (window.ipcRenderer) {
-      setAuthStatus('checking');
-      const result = await window.ipcRenderer.invoke('check-auth-status');
-      console.log('Check auth status result:', result);
-      if (result.isAuthenticated) {
-        setIsAuthenticated(true);
-        setAuthStatus('authenticated');
-        setUser(result.user || null);
-        if (result.user) {
-          console.log('User from check-auth-status:', result.user);
-        }
-        // Get recording state after auth check
-        const recording = await window.ipcRenderer.invoke('get-recording-state');
-        setIsRecording(recording);
-      } else {
-        setIsAuthenticated(false);
-        setAuthStatus('unauthenticated');
-        setUser(null);
-      }
+      setIsAuthenticated(true);
+      setAuthStatus('authenticated');
+      setUser({ name: 'Demo User', email: 'demo@example.com' });
+      // Get recording state
+      const recording = await window.ipcRenderer.invoke('get-recording-state');
+      setIsRecording(recording);
     }
   };
 
@@ -79,10 +68,7 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
   }, []);
 
   const toggleRecording = () => {
-    if (!isAuthenticated) {
-      handleLogin();
-      return;
-    }
+    // Bypass auth check - allow recording without authentication
     const newState = !isRecording;
     // Send message to main process to handle recording
     if (window.ipcRenderer) {
@@ -130,52 +116,7 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
   };
 
   // Render different UI based on auth status
-  if (authStatus === 'checking') {
-    return (
-      <div 
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] select-none"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        <div 
-          className="relative flex items-center gap-2 px-4 py-2.5 rounded-full w-auto"
-          style={{
-            background: 'rgba(20, 20, 20, 0.75)',
-            backdropFilter: 'blur(24px) saturate(200%)',
-            WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            minWidth: 'fit-content',
-          }}
-        >
-          <Loader2 className="w-3 h-3 animate-spin text-white/60 flex-shrink-0" />
-          <span className="text-xs font-medium text-white/60 whitespace-nowrap">Checking authentication...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (authStatus === 'authenticating') {
-    return (
-      <div 
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] select-none"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        <div 
-          className="relative flex items-center gap-2 px-4 py-2.5 rounded-full w-auto"
-          style={{
-            background: 'rgba(20, 20, 20, 0.75)',
-            backdropFilter: 'blur(24px) saturate(200%)',
-            WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            minWidth: 'fit-content',
-          }}
-        >
-          <Loader2 className="w-3 h-3 animate-spin text-white/60 flex-shrink-0" />
-          <span className="text-xs font-medium text-white/80 whitespace-nowrap">Logging in...</span>
-          <span className="text-[10px] text-white/40 whitespace-nowrap ml-1">Complete authentication in your browser</span>
-        </div>
-      </div>
-    );
-  }
+  // Bypassed - always show authenticated UI
 
   return (
     <div 

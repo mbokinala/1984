@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { internalQuery, mutation } from "./_generated/server";
 
 export const generateUploadUrl = mutation({
   handler: async (ctx) => {
@@ -18,28 +18,17 @@ export const createRecording = mutation({
     realWorldTime: v.number(),
   },
   handler: async (ctx, args) => {
-    const userIdentity = await ctx.auth.getUserIdentity();
-
-    if (!userIdentity) {
-      throw new Error("Unauthorized");
-    }
-
-    const matchingUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", userIdentity.subject))
-      .first();
-
-    if (!matchingUser) {
-      throw new Error("User not found");
-    }
-
-    const userId = matchingUser._id;
-
     return await ctx.db.insert("recordings", {
-      ownerId: userId,
       video: args.storageId,
       startTime: args.startTime,
       realWorldTime: args.realWorldTime,
     });
+  },
+});
+
+export const getRecording = internalQuery({
+  args: { recordingId: v.id("recordings") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.recordingId);
   },
 });

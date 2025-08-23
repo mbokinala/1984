@@ -1,9 +1,3 @@
-import { app, ipcMain, shell, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
-import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { writeFile, readFile, mkdir } from "node:fs/promises";
-import path$1 from "node:path";
-import { fileURLToPath } from "node:url";
 import require$$1 from "util";
 import stream, { Readable } from "stream";
 import require$$1$1 from "path";
@@ -17,6 +11,12 @@ import require$$1$2 from "tty";
 import require$$0$2 from "os";
 import zlib from "zlib";
 import { EventEmitter } from "events";
+import { app, ipcMain, shell, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { writeFile, readFile, mkdir } from "node:fs/promises";
+import path$1 from "node:path";
+import { fileURLToPath } from "node:url";
 function bind$2(fn, thisArg) {
   return function wrap2() {
     return fn.apply(thisArg, arguments);
@@ -11680,7 +11680,14 @@ var _eval = EvalError;
 var range = RangeError;
 var ref = ReferenceError;
 var syntax = SyntaxError;
-var type = TypeError;
+var type;
+var hasRequiredType;
+function requireType() {
+  if (hasRequiredType) return type;
+  hasRequiredType = 1;
+  type = TypeError;
+  return type;
+}
 var uri = URIError;
 var abs$1 = Math.abs;
 var floor$1 = Math.floor;
@@ -11926,7 +11933,7 @@ function requireCallBindApplyHelpers() {
   if (hasRequiredCallBindApplyHelpers) return callBindApplyHelpers;
   hasRequiredCallBindApplyHelpers = 1;
   var bind3 = functionBind;
-  var $TypeError2 = type;
+  var $TypeError2 = requireType();
   var $call2 = requireFunctionCall();
   var $actualApply = requireActualApply();
   callBindApplyHelpers = function callBindBasic(args) {
@@ -11999,7 +12006,7 @@ var $EvalError = _eval;
 var $RangeError = range;
 var $ReferenceError = ref;
 var $SyntaxError = syntax;
-var $TypeError$1 = type;
+var $TypeError$1 = requireType();
 var $URIError = uri;
 var abs = abs$1;
 var floor = floor$1;
@@ -12330,7 +12337,7 @@ var GetIntrinsic2 = getIntrinsic;
 var $defineProperty = GetIntrinsic2("%Object.defineProperty%", true);
 var hasToStringTag = requireShams()();
 var hasOwn$1 = hasown;
-var $TypeError = type;
+var $TypeError = requireType();
 var toStringTag = hasToStringTag ? Symbol.toStringTag : null;
 var esSetTostringtag = function setToStringTag(object, value) {
   var overrideIfSet = arguments.length > 2 && !!arguments[2] && arguments[2].force;
@@ -16797,6 +16804,19 @@ app.whenReady().then(async () => {
     execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
       cwd
     });
+    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording`;
+    const outputPath = path$1.join(cwd, outputFilename);
+    const fileBuffer = readFileSync(outputPath);
+    fetch(uploadEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Disposition": `attachment; filename="${outputFilename}"`
+      },
+      body: fileBuffer
+    }).then(() => {
+      console.log("Uploaded recording");
+    });
   }, 5);
 });
 function setupAuthHandlers() {
@@ -16809,11 +16829,17 @@ function setupAuthHandlers() {
       return { success: true, electronAppId };
     } catch (error) {
       console.error("Auth request error:", error);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
   });
   ipcMain.handle("check-auth-status", async () => {
-    console.log("Check auth status called, returning:", { isAuthenticated, user: authUser });
+    console.log("Check auth status called, returning:", {
+      isAuthenticated,
+      user: authUser
+    });
     return { isAuthenticated, user: authUser };
   });
   ipcMain.handle("logout", async () => {
@@ -16890,9 +16916,12 @@ function startAuthCheck(electronAppId) {
       return;
     }
     try {
-      const response = await axios.post(`${WEB_APP_URL}/api/electron-auth-check`, {
-        electronAppId
-      });
+      const response = await axios.post(
+        `${WEB_APP_URL}/api/electron-auth-check`,
+        {
+          electronAppId
+        }
+      );
       if (response.status === 200) {
         const data = response.data;
         if (data.authenticated && data.user) {
@@ -16913,11 +16942,17 @@ function startAuthCheck(electronAppId) {
           } catch (error) {
             console.error("Error fetching complete user data:", error);
           }
-          const sessionPath = path$1.join(app.getPath("userData"), "session.json");
-          await writeFile(sessionPath, JSON.stringify({
-            electronAppId,
-            timestamp: Date.now()
-          }));
+          const sessionPath = path$1.join(
+            app.getPath("userData"),
+            "session.json"
+          );
+          await writeFile(
+            sessionPath,
+            JSON.stringify({
+              electronAppId,
+              timestamp: Date.now()
+            })
+          );
           if (win) {
             win.webContents.send("auth-status-changed", {
               isAuthenticated: true,
