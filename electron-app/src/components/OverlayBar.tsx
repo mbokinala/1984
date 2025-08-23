@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, X, EyeOff, MessageSquare, LogIn, Loader2, LogOut } from 'lucide-react';
+import { Play, X, EyeOff, MessageSquare, LogIn, Loader2 } from 'lucide-react';
 
 interface OverlayBarProps {
   onClose?: () => void;
@@ -127,16 +127,17 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div 
-          className="relative flex items-center gap-2 px-4 py-2 rounded-full"
+          className="relative flex items-center gap-2 px-4 py-2.5 rounded-full w-auto"
           style={{
             background: 'rgba(20, 20, 20, 0.75)',
             backdropFilter: 'blur(24px) saturate(200%)',
             WebkitBackdropFilter: 'blur(24px) saturate(200%)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
+            minWidth: 'fit-content',
           }}
         >
-          <Loader2 className="w-3 h-3 animate-spin text-white/60" />
-          <span className="text-xs font-medium text-white/60">Checking authentication...</span>
+          <Loader2 className="w-3 h-3 animate-spin text-white/60 flex-shrink-0" />
+          <span className="text-xs font-medium text-white/60 whitespace-nowrap">Checking authentication...</span>
         </div>
       </div>
     );
@@ -149,17 +150,18 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div 
-          className="relative flex items-center gap-2 px-4 py-2 rounded-full"
+          className="relative flex items-center gap-2 px-4 py-2.5 rounded-full w-auto"
           style={{
             background: 'rgba(20, 20, 20, 0.75)',
             backdropFilter: 'blur(24px) saturate(200%)',
             WebkitBackdropFilter: 'blur(24px) saturate(200%)',
             border: '1px solid rgba(255, 255, 255, 0.12)',
+            minWidth: 'fit-content',
           }}
         >
-          <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
-          <span className="text-xs font-medium text-white/80">Logging in...</span>
-          <span className="text-[10px] text-white/40">Complete authentication in your browser</span>
+          <Loader2 className="w-3 h-3 animate-spin text-white/60 flex-shrink-0" />
+          <span className="text-xs font-medium text-white/80 whitespace-nowrap">Logging in...</span>
+          <span className="text-[10px] text-white/40 whitespace-nowrap ml-1">Complete authentication in your browser</span>
         </div>
       </div>
     );
@@ -188,7 +190,7 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
               ? (isRecording 
                 ? 'bg-red-500/90 text-white' 
                 : 'hover:bg-white/5 text-white/80 hover:text-white')
-              : 'bg-blue-500/90 hover:bg-blue-600/90 text-white'
+              : 'hover:bg-white/5 text-white/80 hover:text-white'
             }
           `}
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -196,7 +198,7 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
           {!isAuthenticated ? (
             <>
               <LogIn className="w-3 h-3" />
-              <span>Login</span>
+              <span>Sign In</span>
             </>
           ) : isRecording ? (
             <>
@@ -214,50 +216,39 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
           )}
         </button>
 
-        {/* Divider */}
-        <div className="w-px h-4 bg-white/10" />
-
-        {/* Ask Button (Coming Soon) - Only show when authenticated */}
-        {isAuthenticated && (
-          <button
-            disabled
-            className="flex items-center gap-1.5 px-3 py-1 text-white/30 text-xs font-medium cursor-not-allowed"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            <MessageSquare className="w-3 h-3" />
-            <span>Ask</span>
-            <span className="text-[10px] ml-1 opacity-50">⌘⇧A</span>
-          </button>
-        )}
-
-        {/* Divider */}
-        <div className="w-px h-4 bg-white/10" />
-
-        {/* Hide Button - Only show when authenticated */}
-        {isAuthenticated && (
-          <button
-            onClick={onHide}
-            className="flex items-center gap-1.5 px-3 py-1 hover:bg-white/5 text-white/60 hover:text-white/90 text-xs font-medium rounded-full transition-all duration-200"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            <EyeOff className="w-3 h-3" />
-            <span>Hide</span>
-            <span className="text-[10px] ml-1 opacity-50">⌘⇧H</span>
-          </button>
-        )}
-
-        {/* Logout Button - Only show when authenticated */}
+        {/* Divider and other buttons - Only show when authenticated */}
         {isAuthenticated && (
           <>
             <div className="w-px h-4 bg-white/10" />
+
+            {/* Ask Button (Coming Soon) */}
             <button
-              onClick={handleLogout}
+              disabled
+              className="flex items-center gap-1.5 px-3 py-1 text-white/30 text-xs font-medium cursor-not-allowed"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            >
+              <MessageSquare className="w-3 h-3" />
+              <span>Ask</span>
+              <span className="text-[10px] ml-1 opacity-50">⌘⇧A</span>
+            </button>
+
+            <div className="w-px h-4 bg-white/10" />
+
+            {/* Hide Button */}
+            <button
+              onClick={onHide}
               className="flex items-center gap-1.5 px-3 py-1 hover:bg-white/5 text-white/60 hover:text-white/90 text-xs font-medium rounded-full transition-all duration-200"
               style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-              title="Logout"
             >
-              <LogOut className="w-3 h-3" />
+              <EyeOff className="w-3 h-3" />
+              <span>Hide</span>
+              <span className="text-[10px] ml-1 opacity-50">⌘⇧H</span>
             </button>
+
+            <div className="w-px h-4 bg-white/10" />
+
+            {/* Logout Button - Simple implementation since UserButton requires full Clerk auth */}
+        
           </>
         )}
 

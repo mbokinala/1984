@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../convex/_generated/api";
-import { electronAuthStore } from "@/lib/electron-auth-store";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL || "https://artful-duck-190.convex.cloud");
 
@@ -15,31 +14,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing electronAppId" }, { status: 400 });
     }
 
-    // Check if we have a session for this electron app
-    const session = electronAuthStore.get(electronAppId);
+    // Get JWT token from Convex for this electron app
+    const authData = await convex.query(api.auth.getElectronAuth, {
+      electronAppId,
+    });
     
-    if (session) {
-      console.log("Found session, verifying with Convex...");
-      
-      // Verify the session is still valid
-      const result = await convex.query(api.auth.verifySession, {
-        sessionToken: session.sessionToken,
+    console.log("Auth data from Convex:", authData ? "Found" : "Not found");
+
+    if (authData && authData.jwtToken) {
+      return NextResponse.json({
+        authenticated: true,
+        jwtToken: authData.jwtToken, // Return JWT token instead of session token
+        user: authData.user,
       });
-
-      console.log("Convex verification result:", result);
-
-      if (result.valid) {
-        return NextResponse.json({
-          authenticated: true,
-          sessionToken: session.sessionToken,
-          user: session.user,
-        });
-      } else {
-        // Remove invalid session
-        electronAuthStore.delete(electronAppId);
-      }
-    } else {
-      console.log("No session found for electronAppId:", electronAppId);
     }
 
     return NextResponse.json({ authenticated: false });

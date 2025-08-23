@@ -22,5 +22,6 @@ export default defineSchema({
     electronAppId: v.optional(v.string()),
   })
     .index("by_token", ["sessionToken"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_electron_app", ["electronAppId"]),
 });

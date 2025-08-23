@@ -7,7 +7,7 @@ import Image from "next/image"
 import { Google } from "@/components/icons/icon"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { useUser } from "@clerk/nextjs"
+import { useAuth, useUser } from "@clerk/nextjs"
 import { ConvexProvider, useConvex, ConvexReactClient } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 
@@ -17,6 +17,7 @@ function SignInContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const convexClient = useConvex();
   const [isElectronAuth, setIsElectronAuth] = useState(false);
   const [electronAppId, setElectronAppId] = useState<string | null>(null);
@@ -34,8 +35,28 @@ function SignInContent() {
 
   useEffect(() => {
     const handleElectronAuth = async () => {
+      console.log("handleElectronAuth called:", { 
+        isLoaded, 
+        hasUser: !!user, 
+        isElectronAuth, 
+        electronAppId, 
+        authComplete 
+      });
+      
       if (isLoaded && user && isElectronAuth && electronAppId && !authComplete) {
         try {
+          console.log("Starting electron auth flow for:", electronAppId);
+          
+          // Get JWT token from Clerk
+          const token = await getToken();
+          
+          if (!token) {
+            console.error("Failed to get JWT token from Clerk");
+            return;
+          }
+          
+          console.log("Got JWT token from Clerk");
+          
           // Create or update user in Convex
           const userId = await convexClient.mutation(api.auth.upsertUser, {
             clerkId: user.id,
@@ -43,28 +64,15 @@ function SignInContent() {
             name: user.fullName || user.firstName || undefined,
             imageUrl: user.imageUrl,
           });
+          console.log("User upserted in Convex:", userId);
 
-          // Create auth session for Electron app
-          const { sessionToken } = await convexClient.mutation(api.auth.createAuthSession, {
-            clerkId: user.id,
+          // Store the JWT token with the electron app ID for retrieval
+          const { success } = await convexClient.mutation(api.auth.storeElectronAuth, {
             electronAppId,
+            jwtToken: token,
+            clerkId: user.id,
           });
-
-          // Store the session for the electron app to retrieve
-          await fetch("/api/electron-auth-store", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              electronAppId,
-              sessionToken,
-              user: {
-                id: user.id,
-                email: user.primaryEmailAddress?.emailAddress,
-                name: user.fullName || user.firstName,
-                imageUrl: user.imageUrl,
-              },
-            }),
-          });
+          console.log("JWT token stored for electron app:", success);
 
           setAuthComplete(true);
 
@@ -112,12 +120,6 @@ function SignInContent() {
                         <div className="space-y-1 flex justify-center">
                           <Image src="/logo.svg" alt="1984" width={220} height={100} /> 
                         </div>
-
-                        {isElectronAuth && (
-                          <div className="text-center space-y-2">
-                            <p className="text-sm text-gray-600">Sign in to connect your desktop app</p>
-                          </div>
-                        )}
 
                         <div className="space-y-4 mt-10">
                           <div className="flex justify-center">

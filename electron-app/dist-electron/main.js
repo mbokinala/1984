@@ -18780,14 +18780,7 @@ var _eval = EvalError;
 var range = RangeError;
 var ref = ReferenceError;
 var syntax = SyntaxError;
-var type;
-var hasRequiredType;
-function requireType() {
-  if (hasRequiredType) return type;
-  hasRequiredType = 1;
-  type = TypeError;
-  return type;
-}
+var type = TypeError;
 var uri = URIError;
 var abs$1 = Math.abs;
 var floor$1 = Math.floor;
@@ -19033,7 +19026,7 @@ function requireCallBindApplyHelpers() {
   if (hasRequiredCallBindApplyHelpers) return callBindApplyHelpers;
   hasRequiredCallBindApplyHelpers = 1;
   var bind3 = functionBind;
-  var $TypeError2 = requireType();
+  var $TypeError2 = type;
   var $call2 = requireFunctionCall();
   var $actualApply = requireActualApply();
   callBindApplyHelpers = function callBindBasic(args) {
@@ -19106,7 +19099,7 @@ var $EvalError = _eval;
 var $RangeError = range;
 var $ReferenceError = ref;
 var $SyntaxError = syntax;
-var $TypeError$1 = requireType();
+var $TypeError$1 = type;
 var $URIError = uri;
 var abs = abs$1;
 var floor = floor$1;
@@ -19437,7 +19430,7 @@ var GetIntrinsic2 = getIntrinsic;
 var $defineProperty = GetIntrinsic2("%Object.defineProperty%", true);
 var hasToStringTag = requireShams()();
 var hasOwn$1 = hasown;
-var $TypeError = requireType();
+var $TypeError = type;
 var toStringTag = hasToStringTag ? Symbol.toStringTag : null;
 var esSetTostringtag = function setToStringTag(object, value) {
   var overrideIfSet = arguments.length > 2 && !!arguments[2] && arguments[2].force;
@@ -23848,7 +23841,7 @@ let screenshotCounter = 0;
 let nthFrameCallback = null;
 let isRecording = false;
 let isAuthenticated = false;
-let authSessionToken = null;
+let authJwtToken = null;
 let convexClient = null;
 let authCheckInterval = null;
 const CONVEX_URL = "https://artful-duck-190.convex.cloud";
@@ -23922,21 +23915,11 @@ function setupAuthHandlers() {
     }
   });
   ipcMain.handle("check-auth-status", async () => {
-    return { isAuthenticated, sessionToken: authSessionToken };
+    return { isAuthenticated, jwtToken: authJwtToken };
   });
   ipcMain.handle("logout", async () => {
-    if (authSessionToken && convexClient) {
-      try {
-        const { api } = await import("./api-BI2DuRHn.js");
-        await convexClient.mutation(api.auth.invalidateSession, {
-          sessionToken: authSessionToken
-        });
-      } catch (error) {
-        console.error("Logout error:", error);
-      }
-    }
     isAuthenticated = false;
-    authSessionToken = null;
+    authJwtToken = null;
     const sessionPath = path$1.join(app.getPath("userData"), "session.json");
     try {
       await writeFile(sessionPath, JSON.stringify({}));
@@ -23957,17 +23940,13 @@ async function checkAuthStatus() {
       const session = JSON.parse(sessionData);
       if (session.token) {
         convexClient = new ConvexClient(CONVEX_URL);
-        const { api } = await import("./api-BI2DuRHn.js");
-        const result = await convexClient.query(api.auth.verifySession, {
-          sessionToken: session.token
-        });
-        if (result.valid) {
+        if (session.token) {
           isAuthenticated = true;
-          authSessionToken = session.token;
+          authJwtToken = session.token;
           if (win) {
             win.webContents.send("auth-status-changed", {
               isAuthenticated: true,
-              user: result.user
+              user: session.user
             });
           }
         } else {
@@ -24001,15 +23980,15 @@ function startAuthCheck(electronAppId) {
       });
       if (response.status === 200) {
         const data = response.data;
-        if (data.authenticated && data.sessionToken) {
+        if (data.authenticated && data.jwtToken) {
           clearInterval(authCheckInterval);
           authCheckInterval = null;
           isAuthenticated = true;
-          authSessionToken = data.sessionToken;
+          authJwtToken = data.jwtToken;
           convexClient = new ConvexClient(CONVEX_URL);
           const sessionPath = path$1.join(app.getPath("userData"), "session.json");
           await writeFile(sessionPath, JSON.stringify({
-            token: data.sessionToken,
+            token: data.jwtToken,
             timestamp: Date.now()
           }));
           if (win) {

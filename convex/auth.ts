@@ -146,3 +146,126 @@ export const invalidateSession = mutation({
     }
   },
 });
+
+// Store electron auth with JWT token
+export const storeElectronAuth = mutation({
+  args: {
+    electronAppId: v.string(),
+    jwtToken: v.string(),
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find or create the auth session
+    const existing = await ctx.db
+      .query("authSessions")
+      .withIndex("by_electron_app", (q) => q.eq("electronAppId", args.electronAppId))
+      .first();
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (existing) {
+      // Update existing session with new JWT token
+      await ctx.db.patch(existing._id, {
+        sessionToken: args.jwtToken,
+        isActive: true,
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      });
+    } else {
+      // Create new session
+      await ctx.db.insert("authSessions", {
+        userId: user._id,
+        sessionToken: args.jwtToken,
+        isActive: true,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        electronAppId: args.electronAppId,
+      });
+    }
+
+    // Mark user as having electron app linked
+    await ctx.db.patch(user._id, {
+      electronAppLinked: true,
+    });
+
+    return { success: true };
+  },
+});
+
+// Get JWT token by electron app ID
+export const getElectronAuth = query({
+  args: {
+    electronAppId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("authSessions")
+      .withIndex("by_electron_app", (q) => q.eq("electronAppId", args.electronAppId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!session) {
+      return null;
+    }
+
+    // Check if expired
+    if (session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    const user = await ctx.db.get(session.userId);
+    
+    return {
+      jwtToken: session.sessionToken, // This is now the JWT token
+      user: user ? {
+        id: user._id,
+        clerkId: user.clerkId,
+        email: user.email,
+        name: user.name,
+        imageUrl: user.imageUrl,
+      } : null,
+    };
+  },
+});
+
+// Keep the old function for backward compatibility but it now returns JWT
+export const getSessionByElectronAppId = query({
+  args: {
+    electronAppId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("authSessions")
+      .withIndex("by_electron_app", (q) => q.eq("electronAppId", args.electronAppId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!session) {
+      return null;
+    }
+
+    // Check if expired
+    if (session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    const user = await ctx.db.get(session.userId);
+    
+    return {
+      sessionToken: session.sessionToken, // This is now the JWT token
+      user: user ? {
+        id: user._id,
+        clerkId: user.clerkId,
+        email: user.email,
+        name: user.name,
+        imageUrl: user.imageUrl,
+      } : null,
+    };
+  },
+});
