@@ -1,32 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Store temporary auth sessions in memory (in production, use Redis or similar)
-const electronAuthSessions = new Map<string, { sessionToken: string; user: any; timestamp: number }>();
-
-// Clean up old sessions periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of electronAuthSessions.entries()) {
-    if (now - value.timestamp > 10 * 60 * 1000) { // 10 minutes
-      electronAuthSessions.delete(key);
-    }
-  }
-}, 60 * 1000); // Check every minute
+import { electronAuthStore } from "@/lib/electron-auth-store";
 
 export async function POST(request: NextRequest) {
   try {
     const { electronAppId, sessionToken, user } = await request.json();
+
+    console.log("Electron auth store request:", { electronAppId, hasToken: !!sessionToken, hasUser: !!user });
 
     if (!electronAppId || !sessionToken) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     // Store the session
-    electronAuthSessions.set(electronAppId, {
-      sessionToken,
-      user,
-      timestamp: Date.now(),
-    });
+    electronAuthStore.set(electronAppId, sessionToken, user);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -37,6 +23,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Export the sessions map for use in the check endpoint
-export { electronAuthSessions };
