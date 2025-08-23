@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, desktopCapturer } from "electron";
+import { app, ipcMain, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -27,6 +27,8 @@ function createWindow() {
       webSecurity: true
     }
   });
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  win.setAlwaysOnTop(true, "screen-saver");
   win.webContents.on("did-finish-load", () => {
     win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
   });
@@ -42,19 +44,19 @@ app.on("window-all-closed", () => {
     win = null;
   }
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
-});
 app.whenReady().then(() => {
   createWindow();
   setupScreenshotHandlers();
   setupWindowHandlers();
+  setupGlobalShortcuts();
 });
 function setupScreenshotHandlers() {
   ipcMain.handle("capture-screen", async () => {
     try {
+      if (win) {
+        win.setContentProtection(true);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const primaryDisplay = screen.getPrimaryDisplay();
       const { width, height } = primaryDisplay.workAreaSize;
       const sources = await desktopCapturer.getSources({
@@ -69,6 +71,9 @@ function setupScreenshotHandlers() {
       }
       const screenshot = screenSource.thumbnail;
       const buffer = screenshot.toPNG();
+      if (win) {
+        win.setContentProtection(false);
+      }
       const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
       if (!existsSync(screenshotDir)) {
         await mkdir(screenshotDir, { recursive: true });
@@ -92,6 +97,10 @@ function setupScreenshotHandlers() {
   });
   ipcMain.handle("take-screenshot", async () => {
     try {
+      if (win) {
+        win.setContentProtection(true);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const primaryDisplay = screen.getPrimaryDisplay();
       const { width, height } = primaryDisplay.workAreaSize;
       const sources = await desktopCapturer.getSources({
@@ -106,6 +115,9 @@ function setupScreenshotHandlers() {
       }
       const screenshot = screenSource.thumbnail;
       const buffer = screenshot.toPNG();
+      if (win) {
+        win.setContentProtection(false);
+      }
       const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
       if (!existsSync(screenshotDir)) {
         await mkdir(screenshotDir, { recursive: true });
@@ -180,6 +192,11 @@ function setupScreenshotHandlers() {
   });
 }
 function setupWindowHandlers() {
+  ipcMain.on("quit-app", () => {
+    app.quit();
+  });
+  ipcMain.on("overlay-hidden", () => {
+  });
   ipcMain.on("minimize-window", () => {
     if (win) {
       win.minimize();
@@ -201,6 +218,36 @@ function setupWindowHandlers() {
     }
   });
 }
+function setupGlobalShortcuts() {
+  globalShortcut.register("CommandOrControl+Shift+H", () => {
+    if (win) {
+      win.webContents.send("hide-overlay");
+    }
+  });
+  globalShortcut.register("CommandOrControl+Shift+S", () => {
+    if (win) {
+      win.show();
+      win.focus();
+      win.webContents.send("show-overlay");
+    }
+  });
+  globalShortcut.register("CommandOrControl+Shift+R", () => {
+    if (win) {
+      win.webContents.send("toggle-recording");
+    }
+  });
+}
+app.on("activate", () => {
+  if (win) {
+    win.show();
+    win.webContents.send("show-overlay");
+  } else if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+});
 export {
   MAIN_DIST,
   RENDERER_DIST,

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, desktopCapturer, screen, globalShortcut } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -7,7 +7,6 @@ import { existsSync } from 'node:fs'
 
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
 // The built directory structure
 //
 // ├─┬─┬ dist
@@ -45,6 +44,10 @@ function createWindow() {
       webSecurity: true
     },
   })
+  
+  // Make window excluded from screenshots on macOS
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.setAlwaysOnTop(true, 'screen-saver')
 
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
@@ -69,18 +72,13 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('activate', () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
-  }
-})
+
 
 app.whenReady().then(() => {
   createWindow()
   setupScreenshotHandlers()
   setupWindowHandlers()
+  setupGlobalShortcuts()
 })
 
 // Screenshot functionality
@@ -88,6 +86,14 @@ function setupScreenshotHandlers() {
   // Handler for capturing the entire screen
   ipcMain.handle('capture-screen', async () => {
     try {
+      // Temporarily set window to not capture
+      if (win) {
+        win.setContentProtection(true)
+      }
+      
+      // Small delay to ensure the protection is applied
+      await new Promise(resolve => setTimeout(resolve, 50))
+
       // Get the primary display
       const primaryDisplay = screen.getPrimaryDisplay()
       const { width, height } = primaryDisplay.workAreaSize
@@ -114,6 +120,11 @@ function setupScreenshotHandlers() {
 
       // Convert to buffer
       const buffer = screenshot.toPNG()
+      
+      // Re-enable capture after screenshot
+      if (win) {
+        win.setContentProtection(false)
+      }
 
       // Create directory if it doesn't exist
       const screenshotDir = path.join(app.getPath('home'), 'Library', 'Pictures', 'ScreenCap')
@@ -145,6 +156,14 @@ function setupScreenshotHandlers() {
   // Handler for taking a screenshot (alias for capture-screen)
   ipcMain.handle('take-screenshot', async () => {
     try {
+      // Temporarily set window to not capture
+      if (win) {
+        win.setContentProtection(true)
+      }
+      
+      // Small delay to ensure the protection is applied
+      await new Promise(resolve => setTimeout(resolve, 50))
+
       // Get the primary display
       const primaryDisplay = screen.getPrimaryDisplay()
       const { width, height } = primaryDisplay.workAreaSize
@@ -171,6 +190,11 @@ function setupScreenshotHandlers() {
 
       // Convert to buffer
       const buffer = screenshot.toPNG()
+      
+      // Re-enable capture after screenshot
+      if (win) {
+        win.setContentProtection(false)
+      }
 
       // Create directory if it doesn't exist
       const screenshotDir = path.join(app.getPath('home'), 'Library', 'Pictures', 'ScreenCap')
@@ -266,6 +290,16 @@ function setupScreenshotHandlers() {
 
 // Window control handlers
 function setupWindowHandlers() {
+  // Handle quit app
+  ipcMain.on('quit-app', () => {
+    app.quit()
+  })
+
+  // Handle overlay visibility
+  ipcMain.on('overlay-hidden', () => {
+    // Overlay is hidden, but window stays open
+  })
+
   ipcMain.on('minimize-window', () => {
     if (win) {
       win.minimize()
@@ -289,6 +323,44 @@ function setupWindowHandlers() {
       win.show()
     }
   })
-
-
 }
+
+// Global keyboard shortcuts
+function setupGlobalShortcuts() {
+  // Register global shortcut for show/hide
+  globalShortcut.register('CommandOrControl+Shift+H', () => {
+    if (win) {
+      win.webContents.send('hide-overlay')
+    }
+  })
+
+  globalShortcut.register('CommandOrControl+Shift+S', () => {
+    if (win) {
+      win.show()
+      win.focus()
+      win.webContents.send('show-overlay')
+    }
+  })
+
+  // Toggle recording
+  globalShortcut.register('CommandOrControl+Shift+R', () => {
+    if (win) {
+      win.webContents.send('toggle-recording')
+    }
+  })
+}
+
+// Handle app activation (dock icon click on macOS)
+app.on('activate', () => {
+  if (win) {
+    win.show()
+    win.webContents.send('show-overlay')
+  } else if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
+  }
+})
+
+// Unregister shortcuts on quit
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+})

@@ -6,31 +6,46 @@ function App() {
   const [isHidden, setIsHidden] = useState(false)
 
   useEffect(() => {
-    // Set up keyboard shortcut to show the bar again
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Shift + S: Show window
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'S') {
-        e.preventDefault();
-        setIsHidden(false);
-      }
-    };
+    // Listen for IPC messages from main process
+    if (window.ipcRenderer) {
+      const handleToggleVisibility = () => {
+        setIsHidden(prev => !prev);
+      };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+      const handleShow = () => {
+        setIsHidden(false);
+      };
+
+      const handleHide = () => {
+        setIsHidden(true);
+      };
+
+      window.ipcRenderer.on('toggle-visibility', handleToggleVisibility);
+      window.ipcRenderer.on('show-overlay', handleShow);
+      window.ipcRenderer.on('hide-overlay', handleHide);
+
+      return () => {
+        window.ipcRenderer.off('toggle-visibility', handleToggleVisibility);
+        window.ipcRenderer.off('show-overlay', handleShow);
+        window.ipcRenderer.off('hide-overlay', handleHide);
+      };
+    }
   }, []);
 
   const handleClose = () => {
-    // Send IPC message to close the app
+    // Send IPC message to quit the app
     if (window.ipcRenderer) {
-      window.ipcRenderer.send('close-window')
-    } else {
-      window.close()
+      window.ipcRenderer.send('quit-app')
     }
   }
 
   const handleHide = () => {
     // Hide the overlay bar
     setIsHidden(true)
+    // Notify main process
+    if (window.ipcRenderer) {
+      window.ipcRenderer.send('overlay-hidden')
+    }
   }
 
   return (
