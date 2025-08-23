@@ -119,7 +119,7 @@ app.whenReady().then(async () => {
 
     // Use the timestamp in the output filename
     const outputFilename = `output-${frame.timestamp}.mp4`;
-    execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
+    execSync(`./make_movie.sh 1 ${outputFilename}`, {
       cwd,
     });
 
@@ -147,7 +147,7 @@ app.whenReady().then(async () => {
     execSync(`rm ${cwd}/*.mp4`, {
       cwd,
     });
-  }, 5);
+  }, 60);
 });
 
 // Authentication handlers
