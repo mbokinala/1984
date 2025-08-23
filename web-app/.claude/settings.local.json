@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/mbokinala/projects/yc-hackathon-agent-productivity/convex/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
