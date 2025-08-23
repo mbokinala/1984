@@ -1,4 +1,5 @@
 import { app, ipcMain, shell, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { writeFile, readFile, mkdir } from "node:fs/promises";
 import path$1 from "node:path";
@@ -18779,7 +18780,14 @@ var _eval = EvalError;
 var range = RangeError;
 var ref = ReferenceError;
 var syntax = SyntaxError;
-var type = TypeError;
+var type;
+var hasRequiredType;
+function requireType() {
+  if (hasRequiredType) return type;
+  hasRequiredType = 1;
+  type = TypeError;
+  return type;
+}
 var uri = URIError;
 var abs$1 = Math.abs;
 var floor$1 = Math.floor;
@@ -19025,7 +19033,7 @@ function requireCallBindApplyHelpers() {
   if (hasRequiredCallBindApplyHelpers) return callBindApplyHelpers;
   hasRequiredCallBindApplyHelpers = 1;
   var bind3 = functionBind;
-  var $TypeError2 = type;
+  var $TypeError2 = requireType();
   var $call2 = requireFunctionCall();
   var $actualApply = requireActualApply();
   callBindApplyHelpers = function callBindBasic(args) {
@@ -19098,7 +19106,7 @@ var $EvalError = _eval;
 var $RangeError = range;
 var $ReferenceError = ref;
 var $SyntaxError = syntax;
-var $TypeError$1 = type;
+var $TypeError$1 = requireType();
 var $URIError = uri;
 var abs = abs$1;
 var floor = floor$1;
@@ -19429,7 +19437,7 @@ var GetIntrinsic2 = getIntrinsic;
 var $defineProperty = GetIntrinsic2("%Object.defineProperty%", true);
 var hasToStringTag = requireShams()();
 var hasOwn$1 = hasown;
-var $TypeError = type;
+var $TypeError = requireType();
 var toStringTag = hasToStringTag ? Symbol.toStringTag : null;
 var esSetTostringtag = function setToStringTag(object, value) {
   var overrideIfSet = arguments.length > 2 && !!arguments[2] && arguments[2].force;
@@ -23836,6 +23844,8 @@ const RENDERER_DIST = path$1.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path$1.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let win;
 let screenshotInterval = null;
+let screenshotCounter = 0;
+let nthFrameCallback = null;
 let isRecording = false;
 let isAuthenticated = false;
 let authSessionToken = null;
@@ -23884,6 +23894,19 @@ app.whenReady().then(async () => {
   setupScreenshotHandlers();
   setupWindowHandlers();
   setupGlobalShortcuts();
+  setNthFrameCallback((frame) => {
+    console.log("20th frame captured");
+    const cwd = path$1.join(
+      app.getPath("home"),
+      "Library",
+      "Pictures",
+      "ScreenCap"
+    );
+    const outputFilename = `output-${frame.timestamp}.mp4`;
+    execSync(`./make_movie.sh 0.5 ${outputFilename}`, {
+      cwd
+    });
+  }, 5);
 });
 function setupAuthHandlers() {
   ipcMain.handle("request-auth", async () => {
@@ -24264,7 +24287,14 @@ app.on("will-quit", () => {
     clearInterval(screenshotInterval);
   }
 });
+let frameInterval = 5;
+function setNthFrameCallback(callback, n = 5) {
+  nthFrameCallback = callback;
+  frameInterval = n;
+  screenshotCounter = 0;
+}
 async function captureScreenshot() {
+  screenshotCounter++;
   try {
     if (win) {
       win.setContentProtection(true);
@@ -24317,6 +24347,12 @@ async function captureScreenshot() {
     );
     await writeFile(screenshotPath, buffer);
     console.log("Screenshot saved:", screenshotPath);
+    if (nthFrameCallback && screenshotCounter % frameInterval === 0) {
+      nthFrameCallback({
+        path: screenshotPath,
+        timestamp
+      });
+    }
     return { success: true, path: screenshotPath };
   } catch (error) {
     console.error("Screenshot error:", error);
