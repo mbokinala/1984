@@ -16,8 +16,8 @@ export default function SignInPage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { isAuthenticated } = useConvexAuth();
-  const storeUser = useMutation(api.users.store);
   const linkElectronApp = useMutation(api.electronAuth.linkElectronApp);
+  const storeUser = useMutation(api.users.store);
   
   const [isElectronAuth, setIsElectronAuth] = useState(false);
   const [electronAppId, setElectronAppId] = useState<string | null>(null);
@@ -34,48 +34,46 @@ export default function SignInPage() {
     }
   }, [searchParams]);
 
+  // Track if we've already processed this auth
+  const [authProcessed, setAuthProcessed] = useState(false);
+
   useEffect(() => {
     const handleAuth = async () => {
-      // Wait for Clerk to load and user to be authenticated
-      if (!isLoaded || !user) return;
+      // Prevent double processing
+      if (authProcessed) return;
       
-      // Wait for Convex to be authenticated
-      if (!isAuthenticated) {
-        console.log("Waiting for Convex authentication...");
+      // Must have: Clerk loaded, user signed in, Convex authenticated
+      if (!isLoaded || !user || !isAuthenticated) {
         return;
       }
       
+      console.log("Auth ready - User:", user.id, "Electron:", isElectronAuth, "AppId:", electronAppId);
+      
+      // Mark as processed to prevent double execution
+      setAuthProcessed(true);
+      
       if (isElectronAuth && electronAppId) {
         try {
-          console.log("Starting electron auth flow for:", electronAppId);
-          console.log("User authenticated:", user.id);
-          
-          // Store user in Convex first
-          const userId = await storeUser();
-          console.log("User stored in Convex with ID:", userId);
-
-          // Link electron app to user - this will create/update the session
+          // Simple: just link the electron app to the authenticated user
+          console.log("Linking electron app:", electronAppId);
           await linkElectronApp({ electronAppId });
-          console.log("Electron app linked successfully");
-
+          console.log("Electron app linked successfully!");
+          
           setAuthComplete(true);
-
-          // Redirect after showing success
+          
+          // Show success and redirect
           setTimeout(() => {
-            router.push("/dashboard?electronAuth=success");
+            router.push("/dashboard");
           }, 1500);
         } catch (error) {
-          console.error("Error handling electron auth:", error);
-          // Still try to redirect on error
-          setTimeout(() => {
-            router.push("/dashboard?electronAuth=error");
-          }, 1500);
+          console.error("Failed to link electron app:", error);
+          // Still redirect to dashboard
+          router.push("/dashboard");
         }
-      } else if (!isElectronAuth) {
-        // Normal sign-in flow
+      } else {
+        // Normal web sign-in - just store user and go to dashboard
         try {
-          const userId = await storeUser();
-          console.log("User stored in Convex with ID:", userId);
+          await storeUser();
           router.push("/dashboard");
         } catch (error) {
           console.error("Error storing user:", error);
@@ -85,7 +83,7 @@ export default function SignInPage() {
     };
 
     handleAuth();
-  }, [isLoaded, isAuthenticated, user, isElectronAuth, electronAppId, storeUser, linkElectronApp, router]);
+  }, [isLoaded, isAuthenticated, user, isElectronAuth, electronAppId, linkElectronApp, storeUser, router, authProcessed]);
 
   if (authComplete) {
     return (

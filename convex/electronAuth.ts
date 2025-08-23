@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-// Simple: Link electron app to authenticated user
+// Dead simple: Link electron app to whoever is signed in
 export const linkElectronApp = mutation({
   args: {
     electronAppId: v.string(),
@@ -9,58 +9,120 @@ export const linkElectronApp = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
+      console.log("No identity found for electron app:", args.electronAppId);
       throw new Error("Not authenticated");
     }
 
-    console.log("Linking electron app:", args.electronAppId);
+    console.log("Linking electron app:", args.electronAppId, "to:", identity.email);
 
-    // Get the authenticated user
-    const user = await ctx.db
+    // Get or create user
+    let user = await ctx.db
       .query("users")
       .withIndex("by_token", (q) =>
         q.eq("tokenIdentifier", identity.tokenIdentifier)
       )
       .unique();
-
+    
     if (!user) {
-      throw new Error("User not found");
+      // Create user
+      console.log("Creating new user for:", identity.email);
+      const userId = await ctx.db.insert("users", {
+        tokenIdentifier: identity.tokenIdentifier,
+        name: identity.name,
+        email: identity.email,
+        imageUrl: identity.pictureUrl,
+      });
+      user = await ctx.db.get(userId);
     }
 
-    // Create or update electron session
-    const existing = await ctx.db
+    if (!user) {
+      throw new Error("Failed to create/get user");
+    }
+
+    // Delete any existing session for this electron app
+    const existingSession = await ctx.db
       .query("electronSessions")
       .withIndex("by_electron_app", (q) =>
         q.eq("electronAppId", args.electronAppId)
       )
       .first();
 
-    if (existing) {
-      // Update existing session with new user
-      await ctx.db.patch(existing._id, {
-        userId: user._id,
-        tokenIdentifier: identity.tokenIdentifier,
-        isActive: true,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
-      console.log("Updated electron session for user:", user.email);
-    } else {
-      // Create new session
-      await ctx.db.insert("electronSessions", {
-        electronAppId: args.electronAppId,
-        userId: user._id,
-        tokenIdentifier: identity.tokenIdentifier,
-        isActive: true,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
-      console.log("Created electron session for user:", user.email);
+    if (existingSession) {
+      await ctx.db.delete(existingSession._id);
+      console.log("Deleted old session for:", args.electronAppId);
     }
 
-    return { success: true, userId: user._id };
+    // Always create a fresh session
+    await ctx.db.insert("electronSessions", {
+      electronAppId: args.electronAppId,
+      userId: user._id,
+      tokenIdentifier: identity.tokenIdentifier,
+      isActive: true,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    console.log(`Created new session: ${args.electronAppId} -> ${user.email}`);
+    return { success: true, user: { email: user.email, name: user.name } };
   },
 });
 
-// Clear electron session (for sign-out)
+// Dead simple: Check if electron app has a session
+export const checkElectronAuth = query({
+  args: {
+    electronAppId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Find session for this electron app
+    const session = await ctx.db
+      .query("electronSessions")
+      .withIndex("by_electron_app", (q) =>
+        q.eq("electronAppId", args.electronAppId)
+      )
+      .first();
+
+    // No session = not authenticated
+    if (!session) {
+      console.log("No session found for:", args.electronAppId);
+      return { authenticated: false };
+    }
+
+    // Session expired = not authenticated
+    if (session.expiresAt < Date.now()) {
+      console.log("Session expired for:", args.electronAppId);
+      return { authenticated: false };
+    }
+
+    // Session not active = not authenticated
+    if (!session.isActive) {
+      console.log("Session inactive for:", args.electronAppId);
+      return { authenticated: false };
+    }
+
+    // Get the user
+    const user = session.userId ? await ctx.db.get(session.userId) : null;
+    
+    if (!user) {
+      console.log("User not found for session:", args.electronAppId);
+      return { authenticated: false };
+    }
+
+    console.log("Session valid for:", args.electronAppId, "->", user.email);
+
+    // Return authenticated with user data
+    return {
+      authenticated: true,
+      user: {
+        id: user._id,
+        name: user.name || "User",
+        email: user.email || "",
+        imageUrl: user.imageUrl || "",
+      },
+    };
+  },
+});
+
+// Clear session when signing out
 export const clearElectronSession = mutation({
   args: {
     electronAppId: v.string(),
@@ -74,133 +136,9 @@ export const clearElectronSession = mutation({
       .first();
 
     if (session) {
-      await ctx.db.patch(session._id, {
-        isActive: false,
-        userId: undefined,
-        tokenIdentifier: undefined,
-      });
-      console.log("Cleared electron session:", args.electronAppId);
+      await ctx.db.delete(session._id);
     }
 
     return { success: true };
-  },
-});
-
-// Clear all sessions for the current user (on sign-out from web)
-export const clearUserSessions = mutation({
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return { success: true }; // Already signed out
-    }
-
-    // Find user
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
-
-    if (!user) {
-      return { success: true };
-    }
-
-    // Find all electron sessions for this user
-    const sessions = await ctx.db
-      .query("electronSessions")
-      .filter((q) => q.eq(q.field("userId"), user._id))
-      .collect();
-
-    // Clear all sessions
-    for (const session of sessions) {
-      await ctx.db.patch(session._id, {
-        isActive: false,
-      });
-    }
-
-    console.log(`Cleared ${sessions.length} electron sessions for user:`, user.email);
-    return { success: true, clearedCount: sessions.length };
-  },
-});
-
-// Simple check: Is this electron app authenticated?
-export const checkElectronAuth = query({
-  args: {
-    electronAppId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Find active session for this electron app
-    const session = await ctx.db
-      .query("electronSessions")
-      .withIndex("by_electron_app", (q) =>
-        q.eq("electronAppId", args.electronAppId)
-      )
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("isActive"), true),
-          q.gt(q.field("expiresAt"), Date.now())
-        )
-      )
-      .first();
-
-    if (!session || !session.userId) {
-      return { authenticated: false };
-    }
-
-    // Get user data
-    const user = await ctx.db.get(session.userId);
-    if (!user) {
-      return { authenticated: false };
-    }
-
-    return {
-      authenticated: true,
-      user: {
-        id: user._id,
-        name: user.name || "User",
-        email: user.email || "",
-        imageUrl: user.imageUrl || "",
-      },
-    };
-  },
-});
-
-// Get full user data for electron app
-export const getElectronUser = query({
-  args: {
-    electronAppId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("electronSessions")
-      .withIndex("by_electron_app", (q) =>
-        q.eq("electronAppId", args.electronAppId)
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
-
-    if (!session || session.expiresAt < Date.now()) {
-      return null;
-    }
-
-    // Get user directly from users table
-    if (session.userId) {
-      const user = await ctx.db.get(session.userId);
-      if (user) {
-        return {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          imageUrl: user.imageUrl,
-          clerkId: user.clerkId,
-          tokenIdentifier: user.tokenIdentifier,
-          isAuthenticated: user.isAuthenticated,
-          electronAppLinked: user.electronAppLinked,
-        };
-      }
-    }
-
-    return null;
   },
 });
