@@ -2,6 +2,7 @@
 import { WorkflowManager } from "@convex-dev/workflow";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
+import { mutation } from "./_generated/server";
 
 export const workflow = new WorkflowManager(components.workflow);
 
@@ -22,6 +23,21 @@ export const analyzeVideoWorkflow = workflow.define({
       storageId,
     });
 
+    await step.runMutation(internal.recordings.updateRecordingAnalysis, {
+      recordingId: args.recordingId,
+      analysis: summary,
+    });
+
     return summary;
+  },
+});
+
+export const kickoffWorkflow = mutation({
+  args: { recordingId: v.id("recordings") },
+  handler: async (ctx, args) => {
+    console.log("Kicking off workflow");
+    await workflow.start(ctx, internal.workflows.analyzeVideoWorkflow, {
+      recordingId: args.recordingId,
+    });
   },
 });

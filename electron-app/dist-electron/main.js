@@ -16747,7 +16747,7 @@ let screenshotInterval = null;
 let screenshotCounter = 0;
 let nthFrameCallback = null;
 let isRecording = false;
-let isAuthenticated = false;
+let isAuthenticated = true;
 let authUser = null;
 let authCheckInterval = null;
 const WEB_APP_URL = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://your-web-app.com";

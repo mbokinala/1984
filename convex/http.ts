@@ -17,10 +17,14 @@ http.route({
       "realWorldTime"
     );
 
-    await ctx.runMutation(api.recordings.createRecording, {
+    const recordingId = await ctx.runMutation(api.recordings.createRecording, {
       storageId,
       startTime: startTime ? parseInt(startTime) : 0,
       realWorldTime: realWorldTime ? parseInt(realWorldTime) : 0,
+    });
+
+    await ctx.runMutation(api.workflows.kickoffWorkflow, {
+      recordingId,
     });
 
     // Step 3: Return a response with the correct CORS headers
