@@ -1,26 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Camera, Square, Pause, Play, X, Minimize2 } from 'lucide-react';
+import { Pause, Play, X, EyeOff, MessageSquare } from 'lucide-react';
 
 interface OverlayBarProps {
   onClose?: () => void;
-  onMinimize?: () => void;
+  onHide?: () => void;
 }
 
-const OverlayBar: React.FC<OverlayBarProps> = ({ onClose, onMinimize }) => {
+const OverlayBar: React.FC<OverlayBarProps> = ({ onClose, onHide }) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [screenshotCount, setScreenshotCount] = useState(0);
-  const [timeElapsed, setTimeElapsed] = useState(0);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isRecording) {
-      // Start timer
-      const timerId = setInterval(() => {
-        setTimeElapsed(prev => prev + 1);
-      }, 1000);
-
       // Start screenshot capture every 5 seconds
       const screenshotId = setInterval(() => {
         captureScreen();
@@ -32,7 +24,6 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onClose, onMinimize }) => {
       setIntervalId(screenshotId);
 
       return () => {
-        clearInterval(timerId);
         clearInterval(screenshotId);
       };
     } else {
@@ -41,15 +32,37 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onClose, onMinimize }) => {
         clearInterval(intervalId);
         setIntervalId(null);
       }
-      setTimeElapsed(0);
     }
   }, [isRecording]);
+
+  // Set up keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + Shift + R: Toggle recording
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        toggleRecording();
+      }
+      // Cmd/Ctrl + Shift + H: Hide window
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'H') {
+        e.preventDefault();
+        if (onHide) onHide();
+      }
+      // Cmd/Ctrl + Shift + A: Ask (future feature)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        // Future: Open ask dialog
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRecording, onHide]);
 
   const captureScreen = async () => {
     try {
       const result = await window.electronAPI.takeScreenshot();
       if (result.success) {
-        setScreenshotCount(prev => prev + 1);
         console.log('Screenshot saved:', result.path);
       } else {
         console.error('Failed to capture screen:', result.error);
@@ -60,94 +73,98 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onClose, onMinimize }) => {
   };
 
   const toggleRecording = () => {
-    if (!isRecording) {
-      setScreenshotCount(0);
-    }
     setIsRecording(!isRecording);
   };
 
-  const formatTime = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const handleClose = () => {
+    // Quit the entire app
+    if (window.ipcRenderer) {
+      window.ipcRenderer.send('close-window');
+    } else if (onClose) {
+      onClose();
+    }
   };
 
   return (
-    <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md rounded-xl px-3 py-2 shadow-2xl z-[9999] min-w-[320px] border border-white/10 select-none" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-      <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        {/* Status indicator */}
-        <div className="flex items-center">
+    <div 
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] select-none"
+      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+    >
+      <div 
+        className="relative flex items-center gap-2 px-3 py-1.5 rounded-full"
+        style={{
+          background: 'rgba(20, 20, 20, 0.75)',
+          backdropFilter: 'blur(24px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(200%)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        {/* Listen/Recording Button */}
+        <button
+          onClick={toggleRecording}
+          className={`
+            flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200
+            ${isRecording 
+              ? 'bg-red-500/90 text-white shadow-sm' 
+              : 'hover:bg-white/5 text-white/80 hover:text-white'
+            }
+          `}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
           {isRecording ? (
-            <Badge variant="destructive" className="flex items-center gap-1.5 bg-red-500/90 text-white px-2.5 py-1">
-              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-              Recording
-            </Badge>
+            <>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+              </span>
+              <span>Recording</span>
+            </>
           ) : (
-            <Badge variant="secondary" className="bg-white/10 text-white/70 hover:bg-white/15">
-              <Square className="w-3 h-3 mr-1" />
-              Stopped
-            </Badge>
+            <>
+              <Play className="w-3 h-3" />
+              <span>Listen</span>
+            </>
           )}
-        </div>
+        </button>
 
-        {/* Time display */}
-        <div className="flex items-center gap-3 text-white font-mono">
-          <span className="text-sm font-medium tracking-wide">{formatTime(timeElapsed)}</span>
-          {isRecording && (
-            <span className="flex items-center gap-1 text-xs text-white/70 bg-white/10 px-2 py-0.5 rounded-md">
-              <Camera className="w-3 h-3" />
-              {screenshotCount}
-            </span>
-          )}
-        </div>
+        {/* Divider */}
+        <div className="w-px h-4 bg-white/10" />
 
-        {/* Controls */}
-        <div className="flex items-center gap-2 ml-auto">
-          <Button
-            size="sm"
-            variant={isRecording ? "destructive" : "default"}
-            onClick={toggleRecording}
-            className="h-7"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            {isRecording ? (
-              <>
-                <Pause className="w-4 h-4 mr-1" />
-                Pause
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-1" />
-                Start
-              </>
-            )}
-          </Button>
+        {/* Ask Button (Coming Soon) */}
+        <button
+          disabled
+          className="flex items-center gap-1.5 px-3 py-1 text-white/30 text-xs font-medium cursor-not-allowed"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          <MessageSquare className="w-3 h-3" />
+          <span>Ask</span>
+          <span className="text-[10px] ml-1 opacity-50">⌘⇧A</span>
+        </button>
 
-          <div className="w-px h-5 bg-white/20 mx-1" />
+        {/* Divider */}
+        <div className="w-px h-4 bg-white/10" />
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onMinimize}
-            className="h-7 w-7 p-0 text-white/70 hover:text-white hover:bg-white/10"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            title="Minimize"
-          >
-            <Minimize2 className="w-4 h-4" />
-          </Button>
+        {/* Hide Button */}
+        <button
+          onClick={onHide}
+          className="flex items-center gap-1.5 px-3 py-1 hover:bg-white/5 text-white/60 hover:text-white/90 text-xs font-medium rounded-full transition-all duration-200"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          <EyeOff className="w-3 h-3" />
+          <span>Hide</span>
+          <span className="text-[10px] ml-1 opacity-50">⌘⇧H</span>
+        </button>
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onClose}
-            className="h-7 w-7 p-0 text-white/70 hover:text-white hover:bg-white/10"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          className="ml-1 p-1 hover:bg-white/5 text-white/40 hover:text-red-400 rounded-full transition-all duration-200"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          title="Quit"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );

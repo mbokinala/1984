@@ -30,8 +30,8 @@ let win: BrowserWindow | null
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 400,
-    height: 80,
+    width: 420,
+    height: 60,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -98,8 +98,12 @@ function setupScreenshotHandlers() {
         thumbnailSize: { width, height }
       })
 
-      // Find the main screen source
-      const screenSource = sources[0]
+      // Find the main screen source (not the overlay window)
+      const screenSource = sources.find(source => 
+        source.name === 'Entire Screen' || 
+        source.name.includes('Screen') ||
+        source.name === 'Desktop'
+      ) || sources[0]
       
       if (!screenSource) {
         throw new Error('No screen source found')
@@ -151,8 +155,12 @@ function setupScreenshotHandlers() {
         thumbnailSize: { width, height }
       })
 
-      // Find the main screen source
-      const screenSource = sources[0]
+      // Find the main screen source (not the overlay window)
+      const screenSource = sources.find(source => 
+        source.name === 'Entire Screen' || 
+        source.name.includes('Screen') ||
+        source.name === 'Desktop'
+      ) || sources[0]
       
       if (!screenSource) {
         throw new Error('No screen source found')
@@ -281,4 +289,6 @@ function setupWindowHandlers() {
       win.show()
     }
   })
+
+
 }

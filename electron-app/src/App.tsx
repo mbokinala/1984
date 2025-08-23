@@ -1,30 +1,44 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import OverlayBar from './components/OverlayBar'
 import './App.css'
 
 function App() {
-  const [isMinimized, setIsMinimized] = useState(false)
+  const [isHidden, setIsHidden] = useState(false)
+
+  useEffect(() => {
+    // Set up keyboard shortcut to show the bar again
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + Shift + S: Show window
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        setIsHidden(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleClose = () => {
-    // Close the app
-    window.close()
+    // Send IPC message to close the app
+    if (window.ipcRenderer) {
+      window.ipcRenderer.send('close-window')
+    } else {
+      window.close()
+    }
   }
 
-  const handleMinimize = () => {
-    // Minimize to tray or hide
-    setIsMinimized(true)
-    // You can also send an IPC message to minimize the window
-    if (window.ipcRenderer) {
-      window.ipcRenderer.send('minimize-window')
-    }
+  const handleHide = () => {
+    // Hide the overlay bar
+    setIsHidden(true)
   }
 
   return (
     <div className="min-h-screen bg-transparent">
-      {!isMinimized && (
+      {!isHidden && (
         <OverlayBar 
           onClose={handleClose}
-          onMinimize={handleMinimize}
+          onHide={handleHide}
         />
       )}
     </div>

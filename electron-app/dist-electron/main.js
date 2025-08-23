@@ -12,8 +12,8 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 let win;
 function createWindow() {
   win = new BrowserWindow({
-    width: 400,
-    height: 80,
+    width: 420,
+    height: 60,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -61,7 +61,9 @@ function setupScreenshotHandlers() {
         types: ["screen"],
         thumbnailSize: { width, height }
       });
-      const screenSource = sources[0];
+      const screenSource = sources.find(
+        (source) => source.name === "Entire Screen" || source.name.includes("Screen") || source.name === "Desktop"
+      ) || sources[0];
       if (!screenSource) {
         throw new Error("No screen source found");
       }
@@ -96,7 +98,9 @@ function setupScreenshotHandlers() {
         types: ["screen"],
         thumbnailSize: { width, height }
       });
-      const screenSource = sources[0];
+      const screenSource = sources.find(
+        (source) => source.name === "Entire Screen" || source.name.includes("Screen") || source.name === "Desktop"
+      ) || sources[0];
       if (!screenSource) {
         throw new Error("No screen source found");
       }
