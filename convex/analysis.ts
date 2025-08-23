@@ -37,14 +37,10 @@ export const getVideoSummary = internalAction({
       },
     ];
 
-    console.log("messages", messages);
-
     const result = await generateText({
       model: google("gemini-2.5-flash"),
       messages,
     });
-
-    console.log(result.text);
 
     return result.text;
   },
