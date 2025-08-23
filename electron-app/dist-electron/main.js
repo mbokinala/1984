@@ -1,8 +1,8 @@
 import { app, ipcMain, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
@@ -76,12 +76,20 @@ function setupScreenshotHandlers() {
       if (win) {
         win.setContentProtection(false);
       }
-      const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+      const screenshotDir = path.join(
+        app.getPath("home"),
+        "Library",
+        "Pictures",
+        "ScreenCap"
+      );
       if (!existsSync(screenshotDir)) {
         await mkdir(screenshotDir, { recursive: true });
       }
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-      const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`);
+      const screenshotPath = path.join(
+        screenshotDir,
+        `screenshot-${timestamp}.png`
+      );
       await writeFile(screenshotPath, buffer);
       return {
         success: true,
@@ -120,12 +128,20 @@ function setupScreenshotHandlers() {
       if (win) {
         win.setContentProtection(false);
       }
-      const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+      const screenshotDir = path.join(
+        app.getPath("home"),
+        "Library",
+        "Pictures",
+        "ScreenCap"
+      );
       if (!existsSync(screenshotDir)) {
         await mkdir(screenshotDir, { recursive: true });
       }
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-      const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`);
+      const screenshotPath = path.join(
+        screenshotDir,
+        `screenshot-${timestamp}.png`
+      );
       await writeFile(screenshotPath, buffer);
       return {
         success: true,
@@ -168,14 +184,36 @@ function setupScreenshotHandlers() {
       if (!source) {
         throw new Error("Source not found");
       }
-      const screenshot = source.thumbnail;
+      let screenshot = source.thumbnail;
+      const dimensions = screenshot.getSize();
+      console.log("Dimensions are", dimensions.width, dimensions.height);
+      if (dimensions.width % 2 != 0) {
+        screenshot = screenshot.resize({
+          width: dimensions.width + 1,
+          height: dimensions.height
+        });
+      }
+      if (dimensions.height % 2 != 0) {
+        screenshot = screenshot.resize({
+          width: dimensions.width,
+          height: dimensions.height + 1
+        });
+      }
       const buffer = screenshot.toPNG();
-      const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+      const screenshotDir = path.join(
+        app.getPath("home"),
+        "Library",
+        "Pictures",
+        "ScreenCap"
+      );
       if (!existsSync(screenshotDir)) {
         await mkdir(screenshotDir, { recursive: true });
       }
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-      const screenshotPath = path.join(screenshotDir, `screenshot-${source.name}-${timestamp}.png`);
+      const screenshotPath = path.join(
+        screenshotDir,
+        `screenshot-${source.name}-${timestamp}.png`
+      );
       await writeFile(screenshotPath, buffer);
       return {
         success: true,
@@ -294,23 +332,48 @@ async function captureScreenshot() {
     if (!screenSource) {
       throw new Error("No screen source found");
     }
-    const screenshot = screenSource.thumbnail;
+    let screenshot = screenSource.thumbnail;
+    const dimensions = screenshot.getSize();
+    console.log("Dimensions are", dimensions.width, dimensions.height);
+    if (dimensions.width % 2 != 0) {
+      screenshot = screenshot.resize({
+        width: dimensions.width + 1,
+        height: dimensions.height
+      });
+    }
+    if (dimensions.height % 2 != 0) {
+      screenshot = screenshot.resize({
+        width: dimensions.width,
+        height: dimensions.height + 1
+      });
+    }
     const buffer = screenshot.toPNG();
     if (win) {
       win.setContentProtection(false);
     }
-    const screenshotDir = path.join(app.getPath("home"), "Library", "Pictures", "ScreenCap");
+    const screenshotDir = path.join(
+      app.getPath("home"),
+      "Library",
+      "Pictures",
+      "ScreenCap"
+    );
     if (!existsSync(screenshotDir)) {
       await mkdir(screenshotDir, { recursive: true });
     }
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-    const screenshotPath = path.join(screenshotDir, `screenshot-${timestamp}.png`);
+    const screenshotPath = path.join(
+      screenshotDir,
+      `screenshot-${timestamp}.png`
+    );
     await writeFile(screenshotPath, buffer);
     console.log("Screenshot saved:", screenshotPath);
     return { success: true, path: screenshotPath };
   } catch (error) {
     console.error("Screenshot error:", error);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
   }
 }
 ipcMain.on("recording-started", () => {
