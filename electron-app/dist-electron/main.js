@@ -14,7 +14,7 @@ import { EventEmitter } from "events";
 import { app, ipcMain, shell, screen, desktopCapturer, globalShortcut, BrowserWindow } from "electron";
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, readFile, mkdir } from "node:fs/promises";
 import path$1 from "node:path";
 import { fileURLToPath } from "node:url";
 function bind$2(fn, thisArg) {
@@ -16829,36 +16829,15 @@ function setupAuthHandlers() {
   ipcMain.handle("request-auth", async () => {
     try {
       const sessionPath = path$1.join(app.getPath("userData"), "session.json");
-      let electronAppId;
-      try {
-        if (existsSync(sessionPath)) {
-          const sessionData = await readFile(sessionPath, "utf-8");
-          const session = JSON.parse(sessionData);
-          if (session.electronAppId) {
-            electronAppId = session.electronAppId;
-            console.log("Reusing existing electron app ID:", electronAppId);
-          } else {
-            electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-            console.log("Generated new electron app ID:", electronAppId);
-          }
-        } else {
-          electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-          console.log("Generated new electron app ID:", electronAppId);
-        }
-      } catch {
-        electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-        console.log(
-          "Generated new electron app ID after error:",
-          electronAppId
-        );
-      }
+      const electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      console.log("Generated new electron app ID for auth:", electronAppId);
       try {
         await writeFile(sessionPath, JSON.stringify({ electronAppId }));
       } catch (error) {
         console.error("Error saving electron app ID:", error);
       }
-      console.log("Using electron app ID for auth:", electronAppId);
       const authUrl = `${WEB_APP_URL}/sign-in?electronApp=true&appId=${electronAppId}`;
+      console.log("Opening auth URL:", authUrl);
       await shell.openExternal(authUrl);
       startAuthCheck(electronAppId);
       return { success: true, electronAppId };
@@ -16888,14 +16867,14 @@ function setupAuthHandlers() {
         electronAppId = session.electronAppId;
       }
     } catch (error) {
-      console.error("Error reading session for logout:", error);
+      console.error("Error reading session:", error);
     }
     if (electronAppId) {
       try {
         await axios.post(`${WEB_APP_URL}/api/electron-clear-session`, {
           electronAppId
         });
-        console.log("Cleared session in Convex for:", electronAppId);
+        console.log("Cleared Convex session for:", electronAppId);
       } catch (error) {
         console.error("Error clearing Convex session:", error);
       }
@@ -16903,16 +16882,10 @@ function setupAuthHandlers() {
     isAuthenticated = false;
     authUser = null;
     try {
-      await writeFile(
-        sessionPath,
-        JSON.stringify({
-          electronAppId: electronAppId || ""
-          // Keep the app ID for re-authentication
-        })
-      );
-      console.log("Cleared auth data but kept electron app ID");
+      await writeFile(sessionPath, JSON.stringify({}));
+      console.log("Cleared local session completely");
     } catch (error) {
-      console.error("Error updating session file:", error);
+      console.error("Error clearing session file:", error);
     }
     if (win) {
       win.webContents.send("auth-status-changed", { isAuthenticated: false });
@@ -16923,52 +16896,36 @@ function setupAuthHandlers() {
 async function checkAuthStatus() {
   try {
     const sessionPath = path$1.join(app.getPath("userData"), "session.json");
-    if (existsSync(sessionPath)) {
-      const sessionData = await readFile(sessionPath, "utf-8");
-      const session = JSON.parse(sessionData);
-      if (session.electronAppId) {
-        const response = await axios.post(
-          "http://localhost:3000/api/electron-auth-check",
-          { electronAppId: session.electronAppId }
-        );
-        if (response.data.authenticated) {
-          isAuthenticated = true;
-          authUser = response.data.user;
-          console.log("Session restored, user data:", authUser);
-          try {
-            const userResponse = await axios.post(
-              "http://localhost:3000/api/electron-user",
-              { electronAppId: session.electronAppId }
-            );
-            if (userResponse.data.success && userResponse.data.user) {
-              authUser = userResponse.data.user;
-              console.log("Fresh user data from Convex:", authUser);
-            }
-          } catch (error) {
-            console.error("Error fetching fresh user data:", error);
-          }
-          if (win) {
-            win.webContents.send("auth-status-changed", {
-              isAuthenticated: true,
-              user: authUser
-            });
-          }
-        } else {
-          console.log(
-            "Session not authenticated, keeping electronAppId:",
-            session.electronAppId
-          );
-          await writeFile(
-            sessionPath,
-            JSON.stringify({
-              electronAppId: session.electronAppId
-            })
-          );
-        }
+    if (!existsSync(sessionPath)) {
+      console.log("No session file found");
+      return;
+    }
+    const sessionData = await readFile(sessionPath, "utf-8");
+    const session = JSON.parse(sessionData);
+    if (!session.electronAppId) {
+      console.log("No electron app ID in session");
+      return;
+    }
+    console.log("Checking auth for electron app:", session.electronAppId);
+    const response = await axios.post(
+      `${WEB_APP_URL}/api/electron-auth-check`,
+      { electronAppId: session.electronAppId }
+    );
+    if (response.data.authenticated && response.data.user) {
+      isAuthenticated = true;
+      authUser = response.data.user;
+      console.log("Authenticated as:", authUser.email);
+      if (win) {
+        win.webContents.send("auth-status-changed", {
+          isAuthenticated: true,
+          user: authUser
+        });
       }
+    } else {
+      console.log("Not authenticated");
     }
   } catch (error) {
-    console.error("Error checking auth status:", error);
+    console.error("Error checking auth:", error);
   }
 }
 function startAuthCheck(electronAppId) {
@@ -16976,65 +16933,36 @@ function startAuthCheck(electronAppId) {
     clearInterval(authCheckInterval);
   }
   let checkCount = 0;
-  const maxChecks = 120;
+  const maxChecks = 60;
   authCheckInterval = setInterval(async () => {
     checkCount++;
     if (checkCount > maxChecks) {
       clearInterval(authCheckInterval);
       authCheckInterval = null;
-      if (win) {
-        win.webContents.send("auth-timeout");
-      }
+      console.log("Auth check timeout");
       return;
     }
     try {
       const response = await axios.post(
         `${WEB_APP_URL}/api/electron-auth-check`,
-        {
-          electronAppId
-        }
+        { electronAppId }
       );
-      if (response.status === 200) {
-        const data = response.data;
-        if (data.authenticated && data.user) {
-          clearInterval(authCheckInterval);
-          authCheckInterval = null;
-          isAuthenticated = true;
-          authUser = data.user;
-          console.log("Authentication successful, user data:", authUser);
-          try {
-            const userResponse = await axios.post(
-              "http://localhost:3000/api/electron-user",
-              { electronAppId }
-            );
-            if (userResponse.data.success && userResponse.data.user) {
-              authUser = userResponse.data.user;
-              console.log("Complete user data from Convex:", authUser);
-            }
-          } catch (error) {
-            console.error("Error fetching complete user data:", error);
-          }
-          const sessionPath = path$1.join(
-            app.getPath("userData"),
-            "session.json"
-          );
-          await writeFile(
-            sessionPath,
-            JSON.stringify({
-              electronAppId,
-              timestamp: Date.now()
-            })
-          );
-          if (win) {
-            win.webContents.send("auth-status-changed", {
-              isAuthenticated: true,
-              user: authUser
-            });
-          }
+      if (response.data.authenticated && response.data.user) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+        isAuthenticated = true;
+        authUser = response.data.user;
+        console.log("Authenticated as:", authUser.email);
+        const sessionPath = path$1.join(app.getPath("userData"), "session.json");
+        await writeFile(sessionPath, JSON.stringify({ electronAppId }));
+        if (win) {
+          win.webContents.send("auth-status-changed", {
+            isAuthenticated: true,
+            user: authUser
+          });
         }
       }
     } catch (error) {
-      console.error("Auth check error:", error);
     }
   }, 5e3);
 }

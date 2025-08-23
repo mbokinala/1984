@@ -102,18 +102,10 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
   };
 
   const handleLogout = async () => {
-    if (window.ipcRenderer) {
-      // Stop recording if active
-      if (isRecording) {
-        window.ipcRenderer.send('recording-stopped');
-        setIsRecording(false);
-      }
-      
-      await window.ipcRenderer.invoke('logout');
-      setIsAuthenticated(false);
-      setAuthStatus('unauthenticated');
-      setUser(null);
-    }
+    // Logout removed - just sign in with a new account when needed
+    console.log("Logout disabled - sign in with new account to switch users");
+    // Just refresh auth status
+    checkAuthStatus();
   };
 
   const handleClose = () => {
@@ -260,7 +252,6 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
             {/* User Display and Logout Button */}
             <div className="flex items-center">
               <button
-                onClick={handleLogout}
                 className=" hover:bg-white/5 rounded-full transition-all duration-200"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 title="Sign Out"
