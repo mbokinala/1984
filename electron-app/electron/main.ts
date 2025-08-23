@@ -138,6 +138,15 @@ app.whenReady().then(async () => {
     }).then(() => {
       console.log("Uploaded recording");
     });
+
+    // delete all png files in the cwd
+    execSync(`rm ${cwd}/*.png`, {
+      cwd,
+    });
+
+    execSync(`rm ${cwd}/*.mp4`, {
+      cwd,
+    });
   }, 5);
 });
 
@@ -835,7 +844,7 @@ ipcMain.on("recording-started", () => {
   // Start taking screenshots every 5 seconds
   screenshotInterval = setInterval(() => {
     captureScreenshot();
-  }, 5000);
+  }, 1000);
 
   // Notify renderer of state change
   if (win) {

@@ -16817,6 +16817,12 @@ app.whenReady().then(async () => {
     }).then(() => {
       console.log("Uploaded recording");
     });
+    execSync(`rm ${cwd}/*.png`, {
+      cwd
+    });
+    execSync(`rm ${cwd}/*.mp4`, {
+      cwd
+    });
   }, 5);
 });
 function setupAuthHandlers() {
@@ -17306,7 +17312,7 @@ ipcMain.on("recording-started", () => {
   captureScreenshot();
   screenshotInterval = setInterval(() => {
     captureScreenshot();
-  }, 5e3);
+  }, 1e3);
   if (win) {
     win.webContents.send("recording-state-changed", true);
   }
