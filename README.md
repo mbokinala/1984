@@ -6,13 +6,13 @@ A multi-component system for enhanced productivity through intelligent screen ca
 
 ### Components
 
-**Electron App** (`/electron`)  
+**Electron App** (`/electron-app`)  
 Desktop application providing the main user interface and system integration.
 
 **Local Daemon** (`/daemon`)  
 Background service handling screen capture and compression operations.
 
-**Web App** (`/web`)  
+**Web App** (`/web-app`)  
 Next.js application for web-based access and management.
 
 **Backend** (`/convex`)  
