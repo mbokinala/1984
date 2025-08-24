@@ -9,6 +9,7 @@
  */
 
 import type * as analysis from "../analysis.js";
+import type * as analytics from "../analytics.js";
 import type * as debug from "../debug.js";
 import type * as electronAuth from "../electronAuth.js";
 import type * as http from "../http.js";
@@ -32,6 +33,7 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   analysis: typeof analysis;
+  analytics: typeof analytics;
   debug: typeof debug;
   electronAuth: typeof electronAuth;
   http: typeof http;
