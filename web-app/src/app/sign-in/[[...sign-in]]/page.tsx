@@ -145,16 +145,6 @@ export default function SignInPage() {
           </div>
         </div>
       </div>
-
-      {/* Right side - Hidden on mobile */}
-      <div className="hidden md:flex md:w-1/2 bg-black text-white p-8 min-h-screen items-center justify-center">
-        <div className="max-w-md">
-          <h1 className="text-4xl font-bold mb-4">Welcome to 1984</h1>
-          <p className="text-lg opacity-90">
-            Your AI-powered screen recording assistant that helps you remember everything.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
