@@ -23,7 +23,10 @@ export const createRecording = mutation({
     realWorldTime: v.number(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    
     return await ctx.db.insert("recordings", {
+      userId: identity?.subject,
       video: args.storageId,
       startTime: args.startTime,
       realWorldTime: args.realWorldTime,
@@ -47,17 +50,26 @@ export const updateRecordingAnalysis = internalMutation({
 
 export const listRecordings = query({
   handler: async (ctx) => {
-    const recordings = await ctx.db.query("recordings").collect();
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    
+    const recordings = await ctx.db
+      .query("recordings")
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .order("desc")
+      .collect();
 
     return await Promise.all(
       recordings.map(async (recording) => ({
         _id: recording._id,
         _creationTime: recording._creationTime,
+        userId: recording.userId,
         ownerId: recording.ownerId,
-        video: await ctx.storage.getUrl(recording.video),
+        video: recording.video ? await ctx.storage.getUrl(recording.video) : null,
         startTime: recording.startTime,
         realWorldTime: recording.realWorldTime,
         analysis: recording.analysis,
+        detailedAnalysis: recording.detailedAnalysis,
       }))
     );
   },

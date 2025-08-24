@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, X, EyeOff, MessageSquare, LogIn, Loader2 } from 'lucide-react';
+import { Play, X, EyeOff, MessageSquare, LogIn, Loader2, AlertTriangle } from 'lucide-react';
 
 interface OverlayBarProps {
   onClose?: () => void;
@@ -11,11 +11,53 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authStatus, setAuthStatus] = useState<'checking' | 'unauthenticated' | 'authenticating' | 'authenticated'>('checking');
   const [user, setUser] = useState<any>(null);
+  const [distractionAlert, setDistractionAlert] = useState<any>(null);
+  const [alertCheckInterval, setAlertCheckInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Check authentication status on mount
   useEffect(() => {
     checkAuthStatus();
   }, []);
+
+  // Check for distraction alerts when recording
+  useEffect(() => {
+    if (isRecording && isAuthenticated) {
+      // Check for alerts every 10 seconds
+      const interval = setInterval(async () => {
+        if (window.ipcRenderer) {
+          const alerts = await window.ipcRenderer.invoke('check-distraction-alerts');
+          if (alerts && alerts.length > 0) {
+            const latestAlert = alerts[0];
+            setDistractionAlert(latestAlert);
+            
+            // Trigger voice alert
+            if (latestAlert.alert?.message) {
+              await window.ipcRenderer.invoke('trigger-voice-alert', latestAlert.alert.message);
+            }
+            
+            // Clear alert after 5 seconds
+            setTimeout(() => {
+              setDistractionAlert(null);
+            }, 5000);
+          }
+        }
+      }, 10000);
+      
+      setAlertCheckInterval(interval);
+    } else {
+      // Clear interval when not recording
+      if (alertCheckInterval) {
+        clearInterval(alertCheckInterval);
+        setAlertCheckInterval(null);
+      }
+    }
+    
+    return () => {
+      if (alertCheckInterval) {
+        clearInterval(alertCheckInterval);
+      }
+    };
+  }, [isRecording, isAuthenticated]);
 
   const checkAuthStatus = async () => {
     if (window.ipcRenderer) {
@@ -218,23 +260,25 @@ const OverlayBar: React.FC<OverlayBarProps> = ({ onHide }) => {
           )}
         </button>
 
+        {/* Distraction Alert */}
+        {distractionAlert && (
+          <div className="absolute top-full left-0 right-0 mt-2 mx-4 p-3 bg-red-600/95 backdrop-blur-md rounded-lg shadow-2xl animate-pulse">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-white" />
+              <p className="text-white text-sm font-medium">
+                {distractionAlert.alert?.message || "Focus! You're getting distracted!"}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Divider and other buttons - Only show when authenticated */}
         {isAuthenticated && (
           <>
             <div className="w-px h-4 bg-white/10" />
 
-            {/* Ask Button (Coming Soon) */}
-            <button
-              disabled
-              className="flex items-center gap-1.5 px-3 py-1 text-white/30 text-xs font-medium cursor-not-allowed"
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            >
-              <MessageSquare className="w-3 h-3" />
-              <span>Ask</span>
-              <span className="text-[10px] ml-1 opacity-50">⌘⇧A</span>
-            </button>
+          
 
-            <div className="w-px h-4 bg-white/10" />
 
             {/* Hide Button */}
             <button

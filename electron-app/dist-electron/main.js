@@ -16793,7 +16793,6 @@ app.whenReady().then(async () => {
   setupWindowHandlers();
   setupGlobalShortcuts();
   setNthFrameCallback((frame) => {
-    var _a;
     console.log("20th frame captured");
     const cwd = path$1.join(
       app.getPath("home"),
@@ -16806,7 +16805,7 @@ app.whenReady().then(async () => {
       cwd
     });
     const startTimeMs = Date.parse(frame.timestamp);
-    const uploadEndpoint = `https://${(_a = process.env.CONVEX_DEPLOYMENT) == null ? void 0 : _a.replace("dev:", "")}.convex.site/uploadRecording?startTime=${startTimeMs}`;
+    const uploadEndpoint = `https://next-pony-247.convex.site/uploadRecording?startTime=${startTimeMs}`;
     const outputPath = path$1.join(cwd, outputFilename);
     const fileBuffer = readFileSync(outputPath);
     fetch(uploadEndpoint, {
@@ -16831,18 +16830,18 @@ function setupAuthHandlers() {
   ipcMain.handle("request-auth", async () => {
     try {
       const sessionPath = path$1.join(app.getPath("userData"), "session.json");
-      const electronAppId = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      console.log("Generated new electron app ID for auth:", electronAppId);
+      const electronAppId2 = `electron_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      console.log("Generated new electron app ID for auth:", electronAppId2);
       try {
-        await writeFile(sessionPath, JSON.stringify({ electronAppId }));
+        await writeFile(sessionPath, JSON.stringify({ electronAppId: electronAppId2 }));
       } catch (error) {
         console.error("Error saving electron app ID:", error);
       }
-      const authUrl = `${WEB_APP_URL}/sign-in?electronApp=true&appId=${electronAppId}`;
+      const authUrl = `${WEB_APP_URL}/sign-in?electronApp=true&appId=${electronAppId2}`;
       console.log("Opening auth URL:", authUrl);
       await shell.openExternal(authUrl);
-      startAuthCheck(electronAppId);
-      return { success: true, electronAppId };
+      startAuthCheck(electronAppId2);
+      return { success: true, electronAppId: electronAppId2 };
     } catch (error) {
       console.error("Auth request error:", error);
       return {
@@ -16861,22 +16860,22 @@ function setupAuthHandlers() {
   ipcMain.handle("logout", async () => {
     console.log("Logout requested");
     const sessionPath = path$1.join(app.getPath("userData"), "session.json");
-    let electronAppId = null;
+    let electronAppId2 = null;
     try {
       if (existsSync(sessionPath)) {
         const sessionData = await readFile(sessionPath, "utf-8");
         const session = JSON.parse(sessionData);
-        electronAppId = session.electronAppId;
+        electronAppId2 = session.electronAppId;
       }
     } catch (error) {
       console.error("Error reading session:", error);
     }
-    if (electronAppId) {
+    if (electronAppId2) {
       try {
         await axios.post(`${WEB_APP_URL}/api/electron-clear-session`, {
-          electronAppId
+          electronAppId: electronAppId2
         });
-        console.log("Cleared Convex session for:", electronAppId);
+        console.log("Cleared Convex session for:", electronAppId2);
       } catch (error) {
         console.error("Error clearing Convex session:", error);
       }
@@ -16930,7 +16929,7 @@ async function checkAuthStatus() {
     console.error("Error checking auth:", error);
   }
 }
-function startAuthCheck(electronAppId) {
+function startAuthCheck(electronAppId2) {
   if (authCheckInterval) {
     clearInterval(authCheckInterval);
   }
@@ -16947,7 +16946,7 @@ function startAuthCheck(electronAppId) {
     try {
       const response = await axios.post(
         `${WEB_APP_URL}/api/electron-auth-check`,
-        { electronAppId }
+        { electronAppId: electronAppId2 }
       );
       if (response.data.authenticated && response.data.user) {
         clearInterval(authCheckInterval);
@@ -16956,7 +16955,7 @@ function startAuthCheck(electronAppId) {
         authUser = response.data.user;
         console.log("Authenticated as:", authUser.email);
         const sessionPath = path$1.join(app.getPath("userData"), "session.json");
-        await writeFile(sessionPath, JSON.stringify({ electronAppId }));
+        await writeFile(sessionPath, JSON.stringify({ electronAppId: electronAppId2 }));
         if (win) {
           win.webContents.send("auth-status-changed", {
             isAuthenticated: true,
@@ -17328,6 +17327,64 @@ ipcMain.on("recording-stopped", () => {
   }
   if (win) {
     win.webContents.send("recording-state-changed", false);
+  }
+});
+ipcMain.handle("check-distraction-alerts", async () => {
+  try {
+    const response = await axios.get(
+      "http://localhost:3000/api/distraction-alerts",
+      {
+        headers: {
+          "x-electron-app-id": electronAppId
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error checking distraction alerts:", error);
+    return null;
+  }
+});
+ipcMain.handle("trigger-voice-alert", async (event, message) => {
+  try {
+    const vapiResponse = await axios.post(
+      "https://api.vapi.ai/call",
+      {
+        phoneNumber: "+1234567890",
+        // This would be configured
+        assistantId: process.env.VAPI_ASSISTANT_ID || "your-assistant-id",
+        message: message || "Stop looking at distractions and get back to work!"
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.VAPI_API_KEY || "your-vapi-key"}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    const notification = new Notification({
+      title: "⚠️ Focus Alert!",
+      body: message,
+      urgency: "critical",
+      timeoutType: "never"
+    });
+    notification.show();
+    if (win && !win.isFocused()) {
+      win.flashFrame(true);
+      setTimeout(() => {
+        win == null ? void 0 : win.flashFrame(false);
+      }, 3e3);
+    }
+    return { success: true, vapiResponse: vapiResponse.data };
+  } catch (error) {
+    console.error("Error triggering voice alert:", error);
+    const notification = new Notification({
+      title: "⚠️ Focus Alert!",
+      body: message,
+      urgency: "critical"
+    });
+    notification.show();
+    return { success: false, error };
   }
 });
 export {

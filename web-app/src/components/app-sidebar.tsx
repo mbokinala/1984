@@ -2,22 +2,11 @@
 
 import * as React from "react"
 import {
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  LifeBuoy,
-  Map,
-  PieChart,
-  Send,
-  Settings2,
-  SquareTerminal,
+  LayoutDashboard,
   Video,
+  ChartBar,
 } from "lucide-react"
 
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -27,8 +16,30 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarGroup,
+  SidebarGroupContent,
 } from "@/components/ui/sidebar"
 import Image from "next/image"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+
+const navItems = [
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Recordings",
+    url: "/recordings",
+    icon: Video,
+  },
+  {
+    title: "Analytics",
+    url: "/analytics",
+    icon: ChartBar,
+  },
+]
 
 const data = {
   user: {
@@ -36,153 +47,53 @@ const data = {
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "Overview",
-          url: "/dashboard",
-        },
-      ],
-    },
-    {
-      title: "Recordings",
-      url: "/recordings",
-      icon: Video,
-      items: [
-        {
-          title: "All Recordings",
-          url: "/recordings",
-        },
-        {
-          title: "Recent",
-          url: "#",
-        },
-        {
-          title: "Analyzed",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Support",
-      url: "#",
-      icon: LifeBuoy,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname()
+  
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="border-b border-border/10">
         <SidebarMenu>
           <SidebarMenuItem>
-              <a href="https://1984.now" target="_blank">
-               <Image src="/logo.svg" alt="1984" width={100} height={100} className="mt-2"/>
-              </a>
+            <Link href="/dashboard" className="py-2">
+              <Image src="/logo.svg" alt="1984" width={100} height={50} className="dark:invert" />
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => {
+                const isActive = pathname === item.url
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      className={`transition-all duration-200 ${
+                        isActive
+                          ? "bg-gradient-to-r from-neutral-900/90 to-neutral-800/90 text-white shadow-lg shadow-neutral-900/20 border border-neutral-700/50"
+                          : "hover:bg-neutral-100/10 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                      }`}
+                    >
+                      <Link href={item.url} className="flex items-center gap-3 px-3 py-2.5">
+                        <item.icon className={`h-4 w-4 ${
+                          isActive ? "text-white" : ""
+                        }`} />
+                        <span className="font-medium">{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-border/10">
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>

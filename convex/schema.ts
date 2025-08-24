@@ -41,10 +41,30 @@ export default defineSchema({
     .index("by_electron_app", ["electronAppId"]),
 
   recordings: defineTable({
+    userId: v.optional(v.string()),
     ownerId: v.optional(v.id("users")),
-    video: v.id("_storage"),
+    video: v.optional(v.id("_storage")),
     startTime: v.number(), // unix ms timestamp of beginning of video
     realWorldTime: v.number(), // number of milliseconds represented by the video
     analysis: v.optional(v.string()),
-  }),
+    detailedAnalysis: v.optional(v.any()), // Store full JSON analysis
+  }).index("by_user", ["userId"]),
+
+  analytics: defineTable({
+    userId: v.string(),
+    analysis: v.any(), // Full analysis JSON from Gemini
+    timestamp: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_timestamp", ["timestamp"]),
+
+  distractionAlerts: defineTable({
+    alert: v.any(), // Alert details
+    timestamp: v.number(),
+    acknowledged: v.boolean(),
+    userId: v.optional(v.string()),
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_acknowledged", ["acknowledged"]),
 });

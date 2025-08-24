@@ -125,7 +125,7 @@ app.whenReady().then(async () => {
 
     const startTimeMs = Date.parse(frame.timestamp);
 
-    const uploadEndpoint = `https://${process.env.CONVEX_DEPLOYMENT?.replace('dev:', '')}.convex.site/uploadRecording?startTime=${startTimeMs}`;
+    const uploadEndpoint = `https://next-pony-247.convex.site/uploadRecording?startTime=${startTimeMs}`;
 
     // Read the output mp4 file and send it in the body
     const outputPath = path.join(cwd, outputFilename);
@@ -867,5 +867,76 @@ ipcMain.on("recording-stopped", () => {
   // Notify renderer of state change
   if (win) {
     win.webContents.send("recording-state-changed", false);
+  }
+});
+
+// Handle distraction alerts from web app
+ipcMain.handle("check-distraction-alerts", async () => {
+  try {
+    const response = await axios.get(
+      "http://localhost:3000/api/distraction-alerts",
+      {
+        headers: {
+          "x-electron-app-id": electronAppId,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error checking distraction alerts:", error);
+    return null;
+  }
+});
+
+// Trigger VAPI voice alert
+ipcMain.handle("trigger-voice-alert", async (event, message: string) => {
+  try {
+    // VAPI integration for voice alerts
+    const vapiResponse = await axios.post(
+      "https://api.vapi.ai/call",
+      {
+        phoneNumber: "+1234567890", // This would be configured
+        assistantId: process.env.VAPI_ASSISTANT_ID || "your-assistant-id",
+        message: message || "Stop looking at distractions and get back to work!",
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.VAPI_API_KEY || "your-vapi-key"}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    
+    // Also show a system notification
+    const notification = new Notification({
+      title: "⚠️ Focus Alert!",
+      body: message,
+      urgency: "critical",
+      timeoutType: "never",
+    });
+    
+    notification.show();
+    
+    // Flash the window to get attention
+    if (win && !win.isFocused()) {
+      win.flashFrame(true);
+      setTimeout(() => {
+        win?.flashFrame(false);
+      }, 3000);
+    }
+    
+    return { success: true, vapiResponse: vapiResponse.data };
+  } catch (error) {
+    console.error("Error triggering voice alert:", error);
+    
+    // Fallback to just notification if VAPI fails
+    const notification = new Notification({
+      title: "⚠️ Focus Alert!",
+      body: message,
+      urgency: "critical",
+    });
+    notification.show();
+    
+    return { success: false, error };
   }
 });
