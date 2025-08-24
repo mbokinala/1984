@@ -62,10 +62,10 @@ import {
 } from "recharts"
 
 // Function to get favicon using Google's service
-function getAppIcon(appName: string, domain?: string) {
+function getAppIcon(appName: string, appDomain?: string) {
   // If domain is provided, use it directly
-  if (domain) {
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+  if (appDomain) {
+    return `https://www.google.com/s2/favicons?domain=${appDomain}&sz=64`;
   }
   
   // Otherwise, try to guess the domain from app name
@@ -96,8 +96,8 @@ function getAppIcon(appName: string, domain?: string) {
     'netflix': 'netflix.com',
   };
   
-  const domain = commonDomains[name] || `${name}.com`;
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+  const fallbackDomain = commonDomains[name] || `${name}.com`;
+  return `https://www.google.com/s2/favicons?domain=${fallbackDomain}&sz=64`;
 }
 
 interface DashboardData {
