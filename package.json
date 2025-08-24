@@ -8,6 +8,7 @@
     "@ai-sdk/google": "^2.0.8",
     "@convex-dev/workflow": "^0.2.6",
     "ai": "^5.0.22",
-    "convex": "^1.26.1"
+    "convex": "^1.26.1",
+    "zod": "^4.1.0"
   }
 }

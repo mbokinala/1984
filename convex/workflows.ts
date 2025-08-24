@@ -19,16 +19,18 @@ export const analyzeVideoWorkflow = workflow.define({
 
     const storageId = recording.video;
 
-    const summary = await step.runAction(internal.analysis.getVideoSummary, {
+    const analysis = await step.runAction(internal.analysis.getVideoSummary, {
       storageId,
     });
 
     await step.runMutation(internal.recordings.updateRecordingAnalysis, {
       recordingId: args.recordingId,
-      analysis: summary,
+      analysis: analysis.summary,
+      categories: analysis.categories,
+      productive: analysis.productive,
     });
 
-    return summary;
+    return analysis.summary;
   },
 });
 

@@ -39,15 +39,24 @@ export const getRecording = internalQuery({
 });
 
 export const updateRecordingAnalysis = internalMutation({
-  args: { recordingId: v.id("recordings"), analysis: v.string() },
+  args: {
+    recordingId: v.id("recordings"),
+    analysis: v.string(),
+    categories: v.array(v.string()),
+    productive: v.boolean(),
+  },
   handler: async (ctx, args) => {
-    return await ctx.db.patch(args.recordingId, { analysis: args.analysis });
+    await ctx.db.patch(args.recordingId, {
+      analysis: args.analysis,
+      categories: args.categories,
+      productive: args.productive,
+    });
   },
 });
 
 export const listRecordings = query({
   handler: async (ctx) => {
-    const recordings = await ctx.db.query("recordings").collect();
+    const recordings = await ctx.db.query("recordings").order("desc").collect();
 
     return await Promise.all(
       recordings.map(async (recording) => ({
@@ -58,6 +67,8 @@ export const listRecordings = query({
         startTime: recording.startTime,
         realWorldTime: recording.realWorldTime,
         analysis: recording.analysis,
+        categories: recording.categories,
+        productive: recording.productive,
       }))
     );
   },
