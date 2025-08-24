@@ -46,5 +46,7 @@ export default defineSchema({
     startTime: v.number(), // unix ms timestamp of beginning of video
     realWorldTime: v.number(), // number of milliseconds represented by the video
     analysis: v.optional(v.string()),
+    categories: v.optional(v.array(v.string())),
+    productive: v.optional(v.boolean()),
   }),
 });

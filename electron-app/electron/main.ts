@@ -125,7 +125,7 @@ app.whenReady().then(async () => {
 
     const startTimeMs = Date.parse(frame.timestamp);
 
-    const uploadEndpoint = `https://${process.env.CONVEX_DEPLOYMENT?.replace('dev:', '')}.convex.site/uploadRecording?startTime=${startTimeMs}`;
+    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording?startTime=${startTimeMs}`;
 
     // Read the output mp4 file and send it in the body
     const outputPath = path.join(cwd, outputFilename);

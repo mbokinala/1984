@@ -1,8 +1,9 @@
 "use node";
 
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText, GenerateTextResult, ModelMessage } from "ai";
+import { generateObject, ModelMessage } from "ai";
 import { v } from "convex/values";
+import { z } from "zod";
 import { internalAction } from "./_generated/server";
 
 const google = createGoogleGenerativeAI({
@@ -37,15 +38,32 @@ export const getVideoSummary = internalAction({
       },
     ];
 
-    let result: GenerateTextResult<{}, string> | null = null;
     const maxTries = 3;
     for (let attempt = 1; attempt <= maxTries; attempt++) {
       try {
-        result = await generateText({
+        let result = await generateObject({
           model: google("gemini-2.5-pro"),
           messages,
+          schema: z.object({
+            summary: z.string(),
+            categories: z.array(
+              z.union([
+                z.literal("coding"),
+                z.literal("email"),
+                z.literal("entertainment"),
+                z.literal("social_media"),
+                z.literal("writing"),
+                z.literal("news"),
+                z.literal("research"),
+                z.literal("messaging"),
+                z.literal("other"),
+              ])
+            ),
+            productive: z.boolean(),
+          }),
         });
-        break; // Success, exit loop
+
+        return result.object;
       } catch (err) {
         if (attempt === maxTries) {
           throw err;
@@ -58,10 +76,6 @@ export const getVideoSummary = internalAction({
       }
     }
 
-    if (!result) {
-      throw new Error("Failed to generate text");
-    }
-
-    return result.text;
+    throw new Error("Failed to generate summary");
   },
 });

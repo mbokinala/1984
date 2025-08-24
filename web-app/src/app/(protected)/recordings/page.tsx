@@ -123,7 +123,16 @@ export default function RecordingsPage() {
                 <>
                   <div className="space-y-4">
                     {recordings.map((recording) => (
-                      <Card key={recording._id} className="overflow-hidden">
+                      <Card 
+                        key={recording._id} 
+                        className={`overflow-hidden border-l-4 ${
+                          recording.productive === true 
+                            ? "border-l-green-500" 
+                            : recording.productive === false 
+                            ? "border-l-red-500" 
+                            : "border-l-transparent"
+                        }`}
+                      >
                         <div className="p-6">
                           <div className="flex items-start justify-between mb-2">
                             <div className="space-y-1">
@@ -152,6 +161,14 @@ export default function RecordingsPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
+                              {recording.productive !== undefined && (
+                                <Badge 
+                                  variant={recording.productive ? "default" : "destructive"}
+                                  className="gap-1"
+                                >
+                                  {recording.productive ? "Productive" : "Unproductive"}
+                                </Badge>
+                              )}
                               {recording.analysis ? (
                                 <Badge variant="secondary" className="gap-1">
                                   <FileText className="h-3 w-3" />
@@ -204,7 +221,16 @@ export default function RecordingsPage() {
                               </div>
                             )}
 
-                            <div className="flex-1">
+                            <div className="flex-1 space-y-3">
+                              {recording.categories && recording.categories.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {recording.categories.map((category, index) => (
+                                    <Badge key={index} variant="secondary">
+                                      {category}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                               {recording.analysis ? (
                                 <div className="space-y-1">
                                   <h3 className="font-semibold text-base">

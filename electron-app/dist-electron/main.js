@@ -16793,7 +16793,6 @@ app.whenReady().then(async () => {
   setupWindowHandlers();
   setupGlobalShortcuts();
   setNthFrameCallback((frame) => {
-    var _a;
     console.log("20th frame captured");
     const cwd = path$1.join(
       app.getPath("home"),
@@ -16806,7 +16805,7 @@ app.whenReady().then(async () => {
       cwd
     });
     const startTimeMs = Date.parse(frame.timestamp);
-    const uploadEndpoint = `https://${(_a = process.env.CONVEX_DEPLOYMENT) == null ? void 0 : _a.replace("dev:", "")}.convex.site/uploadRecording?startTime=${startTimeMs}`;
+    const uploadEndpoint = `https://combative-schnauzer-947.convex.site/uploadRecording?startTime=${startTimeMs}`;
     const outputPath = path$1.join(cwd, outputFilename);
     const fileBuffer = readFileSync(outputPath);
     fetch(uploadEndpoint, {
